@@ -24,10 +24,14 @@ import org.fusesource.hawtdispatch.Task;
 import org.fusesource.mqtt.client.*;
 
 import java.io.IOException;
+import java.io.FileWriter;
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.concurrent.CountDownLatch;
+import java.util.Date;
+import java.text.SimpleDateFormat;
 
 /**
  * <p>
@@ -35,7 +39,7 @@ import java.util.concurrent.CountDownLatch;
  *
  * @author <a href="http://hiramchirino.com">Hiram Chirino</a>
  */
-public class Listener {
+public class SubscriberSns {
 
     private final MQTT mqtt = new MQTT();
     private final ArrayList<Topic> topics = new ArrayList<Topic>();
@@ -89,7 +93,7 @@ public class Listener {
     }
     
     public static void main(String[] args) throws Exception {
-        Listener main = new Listener();
+        SubscriberSns main = new SubscriberSns();
 
         // Process the arguments
         QoS qos = QoS.AT_MOST_ONCE;
@@ -130,11 +134,13 @@ public class Listener {
                     main.showTopic = true;
                 } else if ("-q".equals(arg)) {
                     int v = Integer.parseInt(shift(argl));
+                    stdout("qv = "+v); //xcy
                     if( v > QoS.values().length ) {
                         stderr("Invalid qos value : " + v);
                         displayHelpAndExit(1);
                     }
-                    qos = QoS.values()[v]; 
+                    qos = QoS.values()[v];
+                    stdout("qos = "+qos); //xcy
                 } else if ("-t".equals(arg)) {
                     main.topics.add(new Topic(shift(argl), qos));
                 } else {
@@ -184,7 +190,11 @@ public class Listener {
             }
         });
         
-        connection.listener(new org.fusesource.mqtt.client.Listener() {
+        connection.listener(new org.fusesource.mqtt.client.Listener() 
+        //xcy set listener for connection
+        //xcy listener is the subscriber
+        //xcy its methods are defined below
+        {
 
             public void onConnected() {
                 if (debug) {
@@ -200,14 +210,126 @@ public class Listener {
 
             public void onPublish(UTF8Buffer topic, Buffer body, Runnable ack) {
                 try {
-                    if (showTopic) {
-                        stdout("");
-                        stdout("Topic: " + topic);
-                        body.writeTo(System.out);
-                        stdout("");
-                    } else {
-                        body.writeTo(System.out);
+                                        
+                    //xcy scan through topic string, look for nodeID and modalType
+                    SnsTopic tp = new SnsTopic(topic.toString()); 
+
+                    //xcy switch modalType call respective Data constructor
+                    //xcy retrieve timestamp and dataValue
+                    if (showTopic) { stdout("Topic: " + tp.getTopic());}
+                    stdout("NodeID: " + tp.getNodeID());
+                    //stdout("Raw data package:");
+                    //body.writeTo(System.out);
+                    //stdout("");
+                    
+                    stdout("Processed data package:");
+                    
+                    SimpleDateFormat ft = 
+                            new SimpleDateFormat ("dd-MM-yyyy HH:mm:ss");
+                    
+                    while(true) {
+                        if (tp.getDatatype()=="Light") {
+                            LightData ld = new LightData(body.toByteArray());
+                            stdout("Time = "+ft.format(new Date((long)ld.getTime()*1000)));
+                            stdout("Light value = "+ld.getLight());
+                            
+                            PrintWriter outputStreamL = 
+                                            new PrintWriter(new FileWriter("LightData.csv", true));
+                            PrintWriter outputStreamData = 
+                                            new PrintWriter(new FileWriter("SensorData.csv", true));
+                            try {
+                                    outputStreamL.println(tp.getNodeID()+","+
+                                            "Light"+","+
+                                            ft.format(new Date((long)ld.getTime()*1000))+","+
+                                            ld.getLight());
+                                    outputStreamData.println(tp.getNodeID()+","+
+                                            "Light"+","+
+                                            ft.format(new Date((long)ld.getTime()*1000))+","+
+                                            ld.getLight());
+                                } finally {
+                                    if (outputStreamL != null) {
+                                        outputStreamL.close();
+                                    }
+                                    if (outputStreamData != null) {
+                                        outputStreamData.close();
+                                    }
+                            }
+                            break;
+                        }
+                        
+                        if (tp.getDatatype()=="Temperature") {
+                            TempData td = new TempData(body.toByteArray());
+                            stdout("Time = "+ft.format(new Date((long)td.getTime()*1000)));
+                            stdout("Temperature = "+td.getTemp());
+                            PrintWriter outputStreamT = 
+                                            new PrintWriter(new FileWriter("TemperatureData.csv", true));
+                            PrintWriter outputStreamData = 
+                                            new PrintWriter(new FileWriter("SensorData.csv", true));
+                            try {
+                                    outputStreamT.println(tp.getNodeID()+","+
+                                            "Temperature"+","+
+                                            ft.format(new Date((long)td.getTime()*1000))+","+
+                                            td.getTemp());
+                                    outputStreamData.println(tp.getNodeID()+","+
+                                            "Temperature"+","+
+                                            ft.format(new Date((long)td.getTime()*1000))+","+
+                                            td.getTemp());
+                                } finally {
+                                    if (outputStreamT != null) {
+                                        outputStreamT.close();
+                                    }
+                                    if (outputStreamData != null) {
+                                        outputStreamData.close();
+                                    }
+                            }
+                            break;
+                        }
+                        if (tp.getDatatype()=="Location") {
+                            LocationData locd = new LocationData(body.toByteArray());
+                            stdout("Time = "+ft.format(new Date((long)locd.getTime()*1000)));
+                            stdout("Latitude = "+locd.getLat());
+                            stdout("Longitude = "+locd.getLong());
+                            PrintWriter outputStreamLoc = 
+                                            new PrintWriter(new FileWriter("LocationData.csv", true));
+                            PrintWriter outputStreamData = 
+                                            new PrintWriter(new FileWriter("SensorData.csv", true));
+                            try {
+                                    outputStreamLoc.println(tp.getNodeID()+","+
+                                            "Location"+","+
+                                            ft.format(new Date((long)locd.getTime()*1000))+","+
+                                            locd.getLat()+","+
+                                            locd.getLong());
+                                    outputStreamData.println(tp.getNodeID()+","+
+                                            "Location"+","+
+                                            ft.format(new Date((long)locd.getTime()*1000))+","+
+                                            locd.getLat()+","+
+                                            locd.getLong());
+                                } finally {
+                                    if (outputStreamLoc != null) {
+                                        outputStreamLoc.close();
+                                    }
+                                    if (outputStreamData != null) {
+                                        outputStreamData.close();
+                                    }
+                            }
+                            break;
+                        }
+                        System.out.println("Error invalid datatype.");
+                        break;
                     }
+                    stdout("");
+                    
+                    //xcy end
+                    
+//                    if (showTopic) {
+//                        stdout("");
+//                        stdout("Topic: " + topic);
+//                        body.writeTo(System.out);
+//                        stdout("");
+//                    } else {
+//                        body.writeTo(System.out); //xcy display body on output
+//                    }
+                    
                     ack.run();
                 } catch (IOException e) {
                     onFailure(e);
@@ -224,8 +346,12 @@ public class Listener {
             }
         });
 
-        connection.resume(); 
-         System.out.println("connection.resume(); success"); //xcy
+        connection.resume(); //xcy AtomicInteger stuff
+         System.out.println("Done connection.resume();"); //xcy
+        
+        //xcy setup transport in connection using .connect() method.
+        //xcy an instance of Callback of Void type is passed in.
+        //xcy contains two methods declaration
         connection.connect(new Callback<Void>() {
             public void onFailure(Throwable value) {
                 if (debug) {
@@ -242,6 +368,7 @@ public class Listener {
                     public void onSuccess(byte[] value) {
                         if(debug) {
                             for (int i = 0; i < value.length; i++) {
+                                stdout("value.length = " + value.length); //xcy
                                 stderr("Subscribed to Topic: " + ta[i].name() + " with QoS: " + QoS.values()[value[i]]);
                             }
                         }                        

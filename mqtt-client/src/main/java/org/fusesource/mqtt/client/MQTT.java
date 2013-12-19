@@ -289,10 +289,14 @@ public class MQTT {
         this.setHost(new URI("tcp://"+host+":"+port));
     }
     public void setHost(String host) throws URISyntaxException {
+         System.out.println("host="+host); //xcy
         this.setHost(new URI(host));
+         System.out.println("new URI(host) success"); //xcy
     }
     public void setHost(URI host) {
         this.host = host;
+         System.out.println("this.host = host; success"); //xcy
+         System.out.println("URI="+host.toString()); //xcy 
     }
 
     public int getSendBufferSize() {

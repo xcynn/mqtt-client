@@ -40,6 +40,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.fusesource.hawtbuf.Buffer.utf8;
 import static org.fusesource.hawtdispatch.Dispatch.createQueue;
 
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.security.KeyStore;
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLServerSocketFactory;
 
 /**
  * <p>
@@ -68,7 +74,8 @@ public class CallbackConnection {
         public void onDisconnected() {
         }
         public void onPublish(UTF8Buffer utf8Buffer, Buffer buffer, Runnable runnable) {
-            this.onFailure(createListenerNotSetError());
+            this.onFailure(createListenerNotSetError()); 
+            //xcy call the below onFailure method, DEFAULT_LISTENER not for handle published msg
         }
         public void onFailure(Throwable value) {
             Thread.currentThread().getUncaughtExceptionHandler().uncaughtException(Thread.currentThread(), value);
@@ -93,7 +100,7 @@ public class CallbackConnection {
 
     private HashMap<UTF8Buffer, QoS> activeSubs = new HashMap<UTF8Buffer, QoS>();
 
-
+    //xcy constructor
     public CallbackConnection(MQTT mqtt) {
         this.mqtt = mqtt;
         if(this.mqtt.dispatchQueue == null) {
@@ -106,13 +113,17 @@ public class CallbackConnection {
     public void connect(final Callback<Void> cb) {
         assert cb !=null : "Callback should not be null.";
 
-        if( transport!=null ) {
+        if( transport!=null ) //xcy check transport status
+        {
             cb.onFailure(new IllegalStateException("Already connected"));
             return;
         }
         try {
-            createTransport(new LoginHandler(cb, true));
+            //xcy Try create transport, by passing in an instance of LoginHandler 
+            //xcy LoginHandler implements Callback<Transport>.
+            createTransport(new LoginHandler(cb, true)); //xcy 
         } catch (Throwable e) {
+             System.out.println("catch (Throwable e)"); //xcy
             // This error happens when the MQTT config is invalid, reattempting
             // wont fix this case.
             cb.onFailure(e);
@@ -223,7 +234,9 @@ public class CallbackConnection {
      * @param onConnect
      * @throws Exception
      */
+    @SuppressWarnings("empty-statement")
     void createTransport(final Callback<Transport> onConnect) throws Exception {
+        System.out.println("enter createTransport"); //xcy
         mqtt.tracer.debug("Connecting");
         String scheme = mqtt.host.getScheme();
 
@@ -233,10 +246,46 @@ public class CallbackConnection {
         }  else if( SslTransport.protocol(scheme)!=null ) {
             SslTransport ssl = new SslTransport();
             if( mqtt.sslContext == null ) {
-                mqtt.sslContext = SSLContext.getDefault();
+                //xcy Below works, but get instance of SSLContext with Default setting, TLSv1 only.
+                //mqtt.sslContext = SSLContext.getDefault();
+                
+                //xcy get instance of SSLContext and initialize it.
+                KeyManagerFactory kmf;
+                KeyStore ks;
+                char[] keystorepass = "password".toCharArray(); //keystore password
+                char[] keypass = "password".toCharArray(); //key password
+                String keystorename = "../conf/mqttclient.ks";
+                mqtt.sslContext = SSLContext.getInstance(SslTransport.protocol(scheme));
+                kmf = KeyManagerFactory.getInstance("SunX509");
+                FileInputStream fin = null;
+                try {
+                    fin = new FileInputStream(keystorename);
+                    ks = KeyStore.getInstance("JKS");
+                    ks.load(fin, keystorepass);
+                    kmf.init(ks, keypass);
+                    mqtt.sslContext.init(kmf.getKeyManagers(), null, null);
+                } catch (FileNotFoundException e) {
+                    System.err.println("FileNotFoundException: " + e.getMessage());
+                } catch (IOException e) {
+                    System.err.println("IOException: " + e.getMessage());
+                } finally {
+                    fin.close();
+                }
+                
+                //xcy display CipherSuites in DefaultSSLParameters in current SSLContext
+                System.out.println("Protocol: "+mqtt.sslContext.getProtocol()); //xcy
+                String[] cipherSuitesList1 = mqtt.sslContext.getDefaultSSLParameters().getCipherSuites(); //xcy
+                for (String s: cipherSuitesList1){ //xcy
+                    System.out.println(s); //xcy
+                } //xcy
             }
+            
             ssl.setSSLContext(mqtt.sslContext);
+            //String[] csList = {"TLS_DHE_RSA_WITH_AES_256_CBC_SHA256"}; //xcy a TSLv1.2 cipher suite
+            //ssl.setEnabledCypherSuites(csList);
+            
             transport = ssl;
+              System.out.println("transport = ssl;"); //xcy
         } else {
             throw new Exception("Unsupported URI scheme '"+scheme+"'");
         }
@@ -249,13 +298,14 @@ public class CallbackConnection {
         transport.setProtocolCodec(new MQTTProtocolCodec());
 
         if( transport instanceof TcpTransport ) {
+            System.out.println("Set tcp transport field;"); //xcy
             TcpTransport tcp = (TcpTransport)transport;
             tcp.setMaxReadRate(mqtt.maxReadRate);
             tcp.setMaxWriteRate(mqtt.maxWriteRate);
             tcp.setReceiveBufferSize(mqtt.receiveBufferSize);
             tcp.setSendBufferSize(mqtt.sendBufferSize);
             tcp.setTrafficClass(mqtt.trafficClass);
-            tcp.setUseLocalHost(mqtt.useLocalHost);
+            tcp.setUseLocalHost(mqtt.useLocalHost);            
             tcp.connecting(mqtt.host, mqtt.localAddress);
         }
 
@@ -265,7 +315,19 @@ public class CallbackConnection {
                 if(disconnected) {
                     onFailure(createDisconnectedError());
                 } else {
-                    onConnect.onSuccess(transport);
+//                    //xcy try to catch SslSession establishment
+//                    if( transport instanceof SslTransport ) { //xcy
+//                        SslTransport mySsl = (SslTransport)transport; //xcy
+//                        System.out.println("CipherSuite2: " + mySsl.getSSLSession().getCipherSuite()); //xcy
+//                        System.out.println("Protocol2: " + mySsl.getSSLSession().getProtocol()); //xcy
+//                    }  //xcy
+                    
+                    System.out.println("onConnect.onSuccess(transport);"); //xcy
+                    onConnect.onSuccess(transport); //xcy transport creation success
+                    //xcy Note: onConnect is of interface Callback<Transport>
+                    //xcy and onConnect is assigned by argument-LoginHandler 
+                    //xcy which implements Callback<Transport>
+                    //xcy onConnect.onSuccess() is invoking onSuccess in class LoginHandler 
                 }
             }
 
@@ -284,19 +346,38 @@ public class CallbackConnection {
                 }
             }
         });
-        transport.start(NOOP);
+        
+        transport.start(NOOP); //xcy NOOP is a Task, from Dispatch.NOOP
+        
+//        //xcy try to catch SslSession establishment
+//        if( transport instanceof SslTransport ) { //xcy
+//            SslTransport mySsl = (SslTransport)transport; //xcy
+//            System.out.println("CipherSuite1: " + mySsl.getSSLSession().getCipherSuite()); //xcy
+//            System.out.println("Protocol1: " + mySsl.getSSLSession().getProtocol()); //xcy
+//        }  
     }
 
     class LoginHandler implements Callback<Transport> {
         final Callback<Void> cb;
         private final boolean initialConnect;
 
+        //xcy constructor
         LoginHandler(Callback<Void> cb, boolean initialConnect) {
             this.cb = cb;
             this.initialConnect = initialConnect;
         }
 
         public void onSuccess(final Transport transport) {
+            
+            System.out.println("LoginHandler.onSuccess"); //xcy
+            
+//            //xcy try to catch SslSession establishment, not catched.
+//            if( transport instanceof SslTransport ) { //xcy
+//                SslTransport mySsl = (SslTransport)transport; //xcy
+//                System.out.println("CipherSuite3: " + mySsl.getSSLSession().getCipherSuite()); //xcy
+//                System.out.println("Protocol3: " + mySsl.getSSLSession().getProtocol()); //xcy
+//            }  //xcy
+            
             transport.setTransportListener(new DefaultTransportListener() {
                 @Override
                 public void onTransportFailure(IOException error) {
@@ -306,6 +387,13 @@ public class CallbackConnection {
                 }
 
                 public void onTransportCommand(Object command) {
+            //xcy try to catch SslSession establishment, catched.
+            if( transport instanceof SslTransport ) { //xcy
+                SslTransport mySsl = (SslTransport)transport; //xcy
+                System.out.println("CipherSuite4: " + mySsl.getSSLSession().getCipherSuite()); //xcy
+                System.out.println("Protocol4: " + mySsl.getSSLSession().getProtocol()); //xcy
+            }  //xcy
+                    
                     MQTTFrame response = (MQTTFrame) command;
                     mqtt.tracer.onReceive(response);
                     try {
@@ -315,6 +403,12 @@ public class CallbackConnection {
                                 switch (connack.code()) {
                                     case CONNECTION_ACCEPTED:
                                         mqtt.tracer.debug("MQTT login accepted");
+            //xcy try to catch SslSession establishment, catched.
+            if( transport instanceof SslTransport ) { //xcy
+                SslTransport mySsl = (SslTransport)transport; //xcy
+                System.out.println("CipherSuite4.5: " + mySsl.getSSLSession().getCipherSuite()); //xcy
+                System.out.println("Protocol4.5: " + mySsl.getSSLSession().getProtocol()); //xcy
+            }  //xcy
                                         onSessionEstablished(transport);
                                         cb.onSuccess(null);
                                         listener.onConnected();
@@ -358,9 +452,10 @@ public class CallbackConnection {
             mqtt.tracer.onSend(encoded);
             mqtt.tracer.debug("Logging in");
             assert accepted: "First frame should always be accepted by the transport";
-        }
+        } //xcy end of onSuccess
         
         private boolean tryReconnect() {
+             System.out.println("LoginHandler.tryReconnect"); //xcy
             if(initialConnect) {
                 return mqtt.connectAttemptsMax<0 || reconnects < mqtt.connectAttemptsMax;
             } else {
@@ -370,6 +465,7 @@ public class CallbackConnection {
 
         public void onFailure(Throwable value) {
             // Socket failure, should we try to reconnect?
+             System.out.println("LoginHandler.onFailure"); //xcy
             if( !disconnected && tryReconnect() ) {
                 reconnect(this);
             } else {
@@ -488,14 +584,16 @@ public class CallbackConnection {
         return failure;
     }
 
-    public void disconnect(final Callback<Void> onComplete) {
-        if( disconnected ) {
+    public void disconnect(final Callback<Void> onComplete) //xcy onComplete implement Callback-interface
+    { 
+        if( disconnected ) { //if it is a graceful disconnection
             if(onComplete!=null){
                 onComplete.onSuccess(null);
             }
             return;
         }
-
+        
+        //if it is an interruptted disconnection
         disconnected = true;
         final short requestId = getNextMessageId();
         final Runnable stop = new Runnable() {
