@@ -104,6 +104,12 @@ public class PublisherStaticNodeDemo {
     
     public static void main(String[] args) throws Exception {
         PublisherStaticNodeDemo main = new PublisherStaticNodeDemo();
+        
+        //xcy Set System property for ssl connection
+        System.setProperty("javax.net.ssl.keyStore", "../conf/mqttclient.ks");
+        System.setProperty("javax.net.ssl.trustStore", "../conf/mqttclient.ts");
+        System.setProperty("javax.net.ssl.keyStorePassword", "password");
+        System.setProperty("javax.net.ssl.trustStorePassword", "password");
 
         // Process the arguments
         LinkedList<String> argl = new LinkedList<String>(Arrays.asList(args));

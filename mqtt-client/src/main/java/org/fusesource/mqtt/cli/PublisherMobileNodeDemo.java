@@ -105,6 +105,12 @@ public class PublisherMobileNodeDemo {
     
     public static void main(String[] args) throws Exception {
         PublisherMobileNodeDemo main = new PublisherMobileNodeDemo();
+        
+        //xcy Set System property for ssl connection
+        System.setProperty("javax.net.ssl.keyStore", "../conf/mqttclient.ks");
+        System.setProperty("javax.net.ssl.trustStore", "../conf/mqttclient.ts");
+        System.setProperty("javax.net.ssl.keyStorePassword", "password");
+        System.setProperty("javax.net.ssl.trustStorePassword", "password");
 
         // Process the arguments
         LinkedList<String> argl = new LinkedList<String>(Arrays.asList(args));
@@ -336,6 +342,8 @@ public class PublisherMobileNodeDemo {
                 //xcy To publish: topic is either UTF8Buffer or string class. 
                 //xcy Default is UTF8Buffer, String will be converted in the background.
                 //xcy publish method defined in CallbackConnection.
+                
+                stdout("qos = "+qos); //xcy
                 connection.publish(topic, message, qos, retain, new Callback<Void>() {
                     public void onSuccess(Void value) {
                         sent ++;

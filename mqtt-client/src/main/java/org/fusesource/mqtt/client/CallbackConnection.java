@@ -121,7 +121,8 @@ public class CallbackConnection {
         try {
             //xcy Try create transport, by passing in an instance of LoginHandler 
             //xcy LoginHandler implements Callback<Transport>.
-            createTransport(new LoginHandler(cb, true)); //xcy 
+            createTransport(new LoginHandler(cb, true)); //xcy
+            System.out.println("createTransport(new LoginHandler(cb, true)); done"); //xcy
         } catch (Throwable e) {
              System.out.println("catch (Throwable e)"); //xcy
             // This error happens when the MQTT config is invalid, reattempting
@@ -252,9 +253,9 @@ public class CallbackConnection {
                 //xcy get instance of SSLContext and initialize it.
                 KeyManagerFactory kmf;
                 KeyStore ks;
-                char[] keystorepass = "password".toCharArray(); //keystore password
-                char[] keypass = "password".toCharArray(); //key password
-                String keystorename = "../conf/mqttclient.ks";
+                char[] keystorepass = System.getProperty("javax.net.ssl.keyStorePassword").toCharArray(); //keystore password
+                char[] keypass = System.getProperty("javax.net.ssl.keyStorePassword").toCharArray(); //key password
+                String keystorename = System.getProperty("javax.net.ssl.keyStore");
                 mqtt.sslContext = SSLContext.getInstance(SslTransport.protocol(scheme));
                 kmf = KeyManagerFactory.getInstance("SunX509");
                 FileInputStream fin = null;
@@ -274,18 +275,17 @@ public class CallbackConnection {
                 
                 //xcy display CipherSuites in DefaultSSLParameters in current SSLContext
                 System.out.println("Protocol: "+mqtt.sslContext.getProtocol()); //xcy
-                String[] cipherSuitesList1 = mqtt.sslContext.getDefaultSSLParameters().getCipherSuites(); //xcy
+             /* String[] cipherSuitesList1 = mqtt.sslContext.getDefaultSSLParameters().getCipherSuites(); //xcy
                 for (String s: cipherSuitesList1){ //xcy
                     System.out.println(s); //xcy
-                } //xcy
+                } //xcy */
             }
             
             ssl.setSSLContext(mqtt.sslContext);
-            //String[] csList = {"TLS_DHE_RSA_WITH_AES_256_CBC_SHA256"}; //xcy a TSLv1.2 cipher suite
-            //ssl.setEnabledCypherSuites(csList);
+            //String csList = "TLS_DHE_RSA_WITH_AES_256_CBC_SHA256"; //xcy a TSLv1.2 cipher suite
+            //ssl.setEnabledCypherSuites(csList); //xcy Client can choose to enable selected cipher suite
             
             transport = ssl;
-              System.out.println("transport = ssl;"); //xcy
         } else {
             throw new Exception("Unsupported URI scheme '"+scheme+"'");
         }
@@ -337,6 +337,7 @@ public class CallbackConnection {
             }
 
             private void onFailure(final Throwable error) {
+                System.out.println("DefaultTransportListener.onFailure"); //xcy
                 if(!transport.isClosed()) {
                     transport.stop(new Task() {
                         public void run() {
@@ -371,7 +372,7 @@ public class CallbackConnection {
             
             System.out.println("LoginHandler.onSuccess"); //xcy
             
-//            //xcy try to catch SslSession establishment, not catched.
+//            //xcy try to determine SslSession establishment, not yet established.
 //            if( transport instanceof SslTransport ) { //xcy
 //                SslTransport mySsl = (SslTransport)transport; //xcy
 //                System.out.println("CipherSuite3: " + mySsl.getSSLSession().getCipherSuite()); //xcy
@@ -387,12 +388,13 @@ public class CallbackConnection {
                 }
 
                 public void onTransportCommand(Object command) {
-            //xcy try to catch SslSession establishment, catched.
-            if( transport instanceof SslTransport ) { //xcy
-                SslTransport mySsl = (SslTransport)transport; //xcy
-                System.out.println("CipherSuite4: " + mySsl.getSSLSession().getCipherSuite()); //xcy
-                System.out.println("Protocol4: " + mySsl.getSSLSession().getProtocol()); //xcy
-            }  //xcy
+                    System.out.println("enter DefaultTransportListener.onTransportCommand()"); //xcy
+                    //xcy Catched SslSession establishment here
+                    if( transport instanceof SslTransport ) { //xcy
+                        SslTransport mySsl = (SslTransport)transport; //xcy
+                        System.out.println("CipherSuite: " + mySsl.getSSLSession().getCipherSuite()); //xcy
+                        System.out.println("Protocol: " + mySsl.getSSLSession().getProtocol()); //xcy
+                    }  //xcy
                     
                     MQTTFrame response = (MQTTFrame) command;
                     mqtt.tracer.onReceive(response);
@@ -403,12 +405,6 @@ public class CallbackConnection {
                                 switch (connack.code()) {
                                     case CONNECTION_ACCEPTED:
                                         mqtt.tracer.debug("MQTT login accepted");
-            //xcy try to catch SslSession establishment, catched.
-            if( transport instanceof SslTransport ) { //xcy
-                SslTransport mySsl = (SslTransport)transport; //xcy
-                System.out.println("CipherSuite4.5: " + mySsl.getSSLSession().getCipherSuite()); //xcy
-                System.out.println("Protocol4.5: " + mySsl.getSSLSession().getProtocol()); //xcy
-            }  //xcy
                                         onSessionEstablished(transport);
                                         cb.onSuccess(null);
                                         listener.onConnected();
@@ -439,7 +435,9 @@ public class CallbackConnection {
                     }
                 }
             });
+            System.out.println("transport.setTransportListener done"); //xcy
             transport.resumeRead();
+            System.out.println("transport.resumeRead done"); //xcy
             if( mqtt.connect.clientId() == null ) {
                 String id = hex(transport.getLocalAddress())+Long.toHexString(System.currentTimeMillis()/1000);
                 if(id.length() > 23) {
@@ -449,6 +447,7 @@ public class CallbackConnection {
             }
             MQTTFrame encoded = mqtt.connect.encode();
             boolean accepted = transport.offer(encoded);
+            System.out.println("boolean accepted = " + accepted); //xcy
             mqtt.tracer.onSend(encoded);
             mqtt.tracer.debug("Logging in");
             assert accepted: "First frame should always be accepted by the transport";
@@ -824,6 +823,7 @@ public class CallbackConnection {
 
     private void processFrame(MQTTFrame frame) {
         try {
+            System.out.println(frame.messageType()); //xcy
             switch(frame.messageType()) {
                 case PUBLISH.TYPE: {
                     PUBLISH publish = new PUBLISH().decode(frame);
@@ -918,6 +918,7 @@ public class CallbackConnection {
     }
 
     private void handleFatalFailure(Throwable error) {
+        System.out.println("handleFatalFailure"); //xcy
         if( failure == null ) {
             failure = error;
             

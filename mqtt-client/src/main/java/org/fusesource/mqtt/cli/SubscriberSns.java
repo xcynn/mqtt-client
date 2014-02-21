@@ -94,7 +94,13 @@ public class SubscriberSns {
     
     public static void main(String[] args) throws Exception {
         SubscriberSns main = new SubscriberSns();
-
+        
+        //xcy Set System property for ssl connection
+        System.setProperty("javax.net.ssl.keyStore", "../conf/mqttclient.ks");
+        System.setProperty("javax.net.ssl.trustStore", "../conf/mqttclient.ts");
+        System.setProperty("javax.net.ssl.keyStorePassword", "password");
+        System.setProperty("javax.net.ssl.trustStorePassword", "password");
+        
         // Process the arguments
         QoS qos = QoS.AT_MOST_ONCE;
         LinkedList<String> argl = new LinkedList<String>(Arrays.asList(args));
@@ -226,6 +232,9 @@ public class SubscriberSns {
                     
                     SimpleDateFormat ft = 
                             new SimpleDateFormat ("dd-MM-yyyy HH:mm:ss");
+                    
+                    //use the method for the relevant datatype to decode the monitoring data
+                    
                     
                     while(true) {
                         if (tp.getDatatype()=="Light") {

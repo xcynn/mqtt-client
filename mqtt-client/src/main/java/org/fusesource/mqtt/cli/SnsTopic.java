@@ -48,19 +48,19 @@ public class SnsTopic {
 //        }
     }
     
-    String getTopic() {
+    public String getTopic() {
         return topic;
     }
     
-    String getSite() {
+    public String getSite() {
         return site;
     }
     
-    String getNodeID() {
+    public String getNodeID() {
         return nodeID;
     }
     
-    String getDatatype() {
+    public String getDatatype() {
         return dataType;
     }
     
