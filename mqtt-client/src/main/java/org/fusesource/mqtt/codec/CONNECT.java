@@ -18,12 +18,14 @@
 
 package org.fusesource.mqtt.codec;
 
-import org.fusesource.hawtbuf.*;
-import org.fusesource.mqtt.client.QoS;
-
 import java.io.IOException;
 import java.net.ProtocolException;
-import static org.fusesource.mqtt.codec.MessageSupport.*;
+
+import static org.fusesource.mqtt.codec.MessageSupport.Message;
+import org.fusesource.hawtbuf.DataByteArrayInputStream;
+import org.fusesource.hawtbuf.DataByteArrayOutputStream;
+import org.fusesource.hawtbuf.UTF8Buffer;
+import org.fusesource.mqtt.client.QoS;
 
 /**
  * <p>
@@ -35,8 +37,8 @@ public class CONNECT implements Message {
 
     public static final byte TYPE = 1;
     
-    private static final Buffer PROTOCOL_NAME = new AsciiBuffer("MQIsdp").buffer();
-    private static final int PROTOCOL_VERSION = 3;
+    private static final UTF8Buffer V3_PROTOCOL_NAME = new UTF8Buffer("MQIsdp");
+    private static final UTF8Buffer V4_PROTOCOL_NAME = new UTF8Buffer("MQTT");
 
     private short keepAlive = 30;
     private UTF8Buffer clientId;
@@ -47,7 +49,7 @@ public class CONNECT implements Message {
     private boolean cleanSession = true;
     private UTF8Buffer userName;
     private UTF8Buffer password;
-    private int version;
+    private int version = 3;
 
 
     public CONNECT(){
@@ -63,6 +65,7 @@ public class CONNECT implements Message {
         this.cleanSession = other.cleanSession;
         this.userName = other.userName;
         this.password = other.password;
+        this.version = other.version;
     }
 
     public byte messageType() {
@@ -73,11 +76,21 @@ public class CONNECT implements Message {
         assert(frame.buffers.length == 1);
         DataByteArrayInputStream is = new DataByteArrayInputStream(frame.buffers[0]);
 
-        if( !PROTOCOL_NAME.equals(MessageSupport.readUTF(is)) ) {
-            throw new ProtocolException("Invalid CONNECT encoding");
+        UTF8Buffer protocolName = MessageSupport.readUTF(is);
+        if (V4_PROTOCOL_NAME.equals(protocolName)) {
+            version = is.readByte() & 0xFF;
+            if( version < 4 ) {
+                throw new ProtocolException("Invalid CONNECT frame: protocol name/version mismatch");
+            }
+        } else if( V3_PROTOCOL_NAME.equals(protocolName) ) {
+            version = is.readByte() & 0xFF;
+            if( version != 3 ) {
+                throw new ProtocolException("Invalid CONNECT frame: protocol name/version mismatch");
+            }
+        } else {
+            throw new ProtocolException("Invalid CONNECT frame");
         }
 
-        version = is.readByte() & 0xFF;
         byte flags = is.readByte();
         boolean username_flag = (flags & 0x80) > 0;
         boolean password_flag = (flags & 0x40) > 0;
@@ -88,6 +101,9 @@ public class CONNECT implements Message {
 
         keepAlive = is.readShort();
         clientId = MessageSupport.readUTF(is);
+        if( clientId.length == 0 ) {
+            clientId = null;
+        }
         if(will_flag) {
             willTopic = MessageSupport.readUTF(is);
             willMessage = MessageSupport.readUTF(is);
@@ -103,9 +119,20 @@ public class CONNECT implements Message {
     
     public MQTTFrame encode() {
         try {
+            if( (clientId==null || clientId.length == 0) && !cleanSession ) {
+                throw new IllegalArgumentException("A clean session must be used when no clientId is specified");
+            }
             DataByteArrayOutputStream os = new DataByteArrayOutputStream(500);
-            MessageSupport.writeUTF(os, PROTOCOL_NAME);
-            os.writeByte(PROTOCOL_VERSION);
+            if(version==3) {
+                MessageSupport.writeUTF(os, V3_PROTOCOL_NAME);
+                os.writeByte(version);
+            } else if(version >= 4) {
+                MessageSupport.writeUTF(os, V4_PROTOCOL_NAME);
+                os.writeByte(version);
+            } else {
+                throw new IllegalArgumentException("Invalid version: "+version);
+            }
+
             int flags = 0;
             if(userName!=null) {
                 flags |= 0x80;
@@ -231,7 +258,13 @@ public class CONNECT implements Message {
     }
 
     public CONNECT version(int version) {
-        this.version = version;
+        if(version==3) {
+            this.version = version;
+        } else if(version >= 4) {
+            this.version = version;
+        } else {
+            throw new IllegalArgumentException("Invalid version: "+version);
+        }
         return this;
     }
 
