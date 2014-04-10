@@ -42,8 +42,9 @@ import static org.fusesource.hawtdispatch.Dispatch.createQueue;
 
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.security.KeyStore;
+import java.security.KeyStore;;
 import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLServerSocketFactory;
 
@@ -251,38 +252,51 @@ public class CallbackConnection {
                 //mqtt.sslContext = SSLContext.getDefault();
                 
                 //xcy get instance of SSLContext and initialize it.
-                KeyManagerFactory kmf;
-                KeyStore ks;
                 char[] keystorepass = System.getProperty("javax.net.ssl.keyStorePassword").toCharArray(); //keystore password
                 char[] keypass = System.getProperty("javax.net.ssl.keyStorePassword").toCharArray(); //key password
                 String keystorename = System.getProperty("javax.net.ssl.keyStore");
-                mqtt.sslContext = SSLContext.getInstance(SslTransport.protocol(scheme));
-                kmf = KeyManagerFactory.getInstance("SunX509");
-                FileInputStream fin = null;
-                try {
-                    fin = new FileInputStream(keystorename);
-                    ks = KeyStore.getInstance("JKS");
-                    ks.load(fin, keystorepass);
-                    kmf.init(ks, keypass);
-                    mqtt.sslContext.init(kmf.getKeyManagers(), null, null);
+                char[] truststorepass = System.getProperty("javax.net.ssl.trustStorePassword").toCharArray(); //keystore password
+                String truststorename = System.getProperty("javax.net.ssl.trustStore");
+                
+                // First initialize the key and trust material.
+                FileInputStream finks = null;
+                FileInputStream fints = null;
+                try{
+                    finks = new FileInputStream(keystorename);
+                    fints = new FileInputStream(truststorename);
+                    KeyStore ksKeys = KeyStore.getInstance("JKS");
+                    ksKeys.load(finks, keystorepass);
+                    KeyStore ksTrust = KeyStore.getInstance("JKS");
+                    ksTrust.load(fints, truststorepass);
+                    
+                    // KeyManager's decide which key material to use.
+                    KeyManagerFactory kmf =
+                        KeyManagerFactory.getInstance("SunX509");
+                    kmf.init(ksKeys, keypass);
+                    
+                    // TrustManager's decide whether to allow connections.
+                    TrustManagerFactory tmf =
+                        TrustManagerFactory.getInstance("SunX509");
+                    tmf.init(ksTrust);
+                    mqtt.sslContext = SSLContext.getInstance(SslTransport.protocol(scheme));
+                    mqtt.sslContext.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);
+                
                 } catch (FileNotFoundException e) {
                     System.err.println("FileNotFoundException: " + e.getMessage());
                 } catch (IOException e) {
                     System.err.println("IOException: " + e.getMessage());
                 } finally {
-                    fin.close();
+                    finks.close();
+                    fints.close();
                 }
-                
+                                
                 //xcy display CipherSuites in DefaultSSLParameters in current SSLContext
                 System.out.println("Protocol: "+mqtt.sslContext.getProtocol()); //xcy
-             /* String[] cipherSuitesList1 = mqtt.sslContext.getDefaultSSLParameters().getCipherSuites(); //xcy
-                for (String s: cipherSuitesList1){ //xcy
-                    System.out.println(s); //xcy
-                } //xcy */
+             
             }
             
             ssl.setSSLContext(mqtt.sslContext);
-            //String csList = "TLS_DHE_RSA_WITH_AES_256_CBC_SHA256"; //xcy a TSLv1.2 cipher suite
+            //String csList = "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384"; //xcy a TSLv1.2 cipher suite
             //ssl.setEnabledCypherSuites(csList); //xcy Client can choose to enable selected cipher suite
             
             transport = ssl;
