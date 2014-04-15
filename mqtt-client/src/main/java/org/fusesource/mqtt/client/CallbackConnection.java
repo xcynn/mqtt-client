@@ -292,10 +292,15 @@ public class CallbackConnection {
                                 
                 //xcy display CipherSuites in DefaultSSLParameters in current SSLContext
                 System.out.println("Protocol: "+mqtt.sslContext.getProtocol()); //xcy
-             
             }
             
             ssl.setSSLContext(mqtt.sslContext);
+            
+            //xcy Debug for SSL
+            System.out.println("Suties:");
+            for(String str : mqtt.sslContext.getSupportedSSLParameters().getCipherSuites()) {
+                 System.out.println(str);
+            }
             //String csList = "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384"; //xcy a TSLv1.2 cipher suite
             //ssl.setEnabledCypherSuites(csList); //xcy Client can choose to enable selected cipher suite
             

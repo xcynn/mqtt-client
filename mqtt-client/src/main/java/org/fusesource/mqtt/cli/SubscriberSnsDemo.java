@@ -37,9 +37,9 @@ import java.text.SimpleDateFormat;
  * <p>
  * </p>
  *
- * @author <a href="http://hiramchirino.com">Hiram Chirino</a>
+ * @author <a>Xu Chengyang</a>
  */
-public class SubscriberSns {
+public class SubscriberSnsDemo {
 
     private final MQTT mqtt = new MQTT();
     private final ArrayList<Topic> topics = new ArrayList<Topic>();
@@ -93,7 +93,7 @@ public class SubscriberSns {
     }
     
     public static void main(String[] args) throws Exception {
-        SubscriberSns main = new SubscriberSns();
+        SubscriberSnsDemo main = new SubscriberSnsDemo();
         
         //xcy Set System property for ssl connection
         System.setProperty("javax.net.ssl.keyStore", "../conf/mqttclient.ks");
@@ -216,7 +216,12 @@ public class SubscriberSns {
 
             public void onPublish(UTF8Buffer topic, Buffer body, Runnable ack) {
                 try {
-                                        
+                    /* //check byte array hexcode
+                     * StringBuilder sb = new StringBuilder();
+                     * for (byte b : body.toByteArray()) {sb.append(String.format("%02X ", b));}
+                     * System.out.println(sb.toString());
+                     */
+                    
                     //xcy scan through topic string, look for nodeID and modalType
                     SnsTopic tp = new SnsTopic(topic.toString()); 
 

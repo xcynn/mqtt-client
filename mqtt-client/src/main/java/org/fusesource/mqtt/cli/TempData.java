@@ -12,6 +12,7 @@ import java.nio.ByteBuffer;
 import java.io.FileOutputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.nio.ByteOrder;
 import java.util.Date;
 
 public class TempData {
@@ -57,11 +58,11 @@ public class TempData {
     }
     
     public void writeToFile(String filename) throws IOException {
-        byte[] byteArray = new byte[8];
+        byte[] byteArray = new byte[TEMP_DATA_SIZE];
         // ByteBuffer to be backed by the buffer byte array
         ByteBuffer timestampBuf = ByteBuffer.wrap(byteArray, 0, 4);
         ByteBuffer valueBuf = ByteBuffer.wrap(byteArray, 4, 4);
-        
+                
         timestampBuf.putInt(timestamp);
         valueBuf.putFloat(tempVal);
         //byte array buffer content changed after put method.
@@ -72,7 +73,7 @@ public class TempData {
     }
     
     public void readFromFile(String filename) throws IOException {
-        byte[] byteArray = new byte[8];
+        byte[] byteArray = new byte[TEMP_DATA_SIZE];
         ByteBuffer timestampBuf = ByteBuffer.wrap(byteArray, 0, 4);
         ByteBuffer valueBuf = ByteBuffer.wrap(byteArray, 4, 4);
         
@@ -85,7 +86,7 @@ public class TempData {
     }
     
     public byte[] writeToBytes() {
-        byte[] ByteArray = new byte[8];
+        byte[] ByteArray = new byte[TEMP_DATA_SIZE];
         // ByteBuffer to be backed by the buffer byte array
         ByteBuffer timestampBuf = ByteBuffer.wrap(ByteArray, 0, 4);
         ByteBuffer valueBuf = ByteBuffer.wrap(ByteArray, 4, 4);
@@ -105,6 +106,8 @@ public class TempData {
         } else{
             ByteBuffer timestampBuf = ByteBuffer.wrap(byteArray, 0, 4);
             ByteBuffer valueBuf = ByteBuffer.wrap(byteArray, 4, 4);
+            //timestampBuf.order(ByteOrder.LITTLE_ENDIAN);
+            //valueBuf.order(ByteOrder.LITTLE_ENDIAN);
             timestamp = timestampBuf.getInt();
             tempVal = valueBuf.getFloat();
         }

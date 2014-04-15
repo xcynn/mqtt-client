@@ -36,7 +36,7 @@ import java.util.concurrent.TimeUnit;
  * <p>
  * </p>
  *
- * @author <a href="http://hiramchirino.com">Hiram Chirino</a>
+ * @author <a>Xu Chengyang</a>
  */
 public class PublisherMobileNodeDemo {
     private int itr = 1; //xcy
