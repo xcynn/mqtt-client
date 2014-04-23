@@ -501,6 +501,7 @@ public class CallbackConnection {
         }
         this.transport.setTransportListener(new DefaultTransportListener() {
             public void onTransportCommand(Object command) {
+                //new Exception().printStackTrace(System.out); //xcy
                 MQTTFrame frame = (MQTTFrame) command;
                 mqtt.tracer.onReceive(frame);
                 processFrame(frame);

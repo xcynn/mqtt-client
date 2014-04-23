@@ -1,0 +1,95 @@
+#!/bin/bash
+#
+# AdaxSub 	MQTT Subscriber at Adax side
+#
+# chkconfig: 2345 90 20
+# description: AdaxSub is a MQTT Subscriber at Adax side
+# processname: adaxsub
+
+# Source function library.
+. /etc/init.d/functions
+
+RETVAL=0
+NAME=adaxsub
+
+# Declare variables for AdaxSub program
+PIDFILE=/var/run/$NAME.pid
+DAEMON_PATH=/usr/local/mqtt-client/mqtt-client/
+DAEMON='java -cp ./target/mqtt-client-1.10-SNAPSHOT-uber.jar org.fusesource.mqtt.cli.AdaxSubscriber -h tcp://10.217.138.185:1883 -q 2 -t /sns/+/+/+ -d'
+
+start() {
+	printf "%-30s" "Starting $NAME..."
+	#check existing pid file
+	if [ -f $PIDFILE ]; then
+		PID=`cat $PIDFILE`
+		if [ -z "`ps axf | grep ${PID} | grep -v grep`" ]; then
+			printf "%s\n" "pidfile exists but process dead"
+			printf "%s\n" "Starting new instance "
+		else
+			echo "$NAME is already Running"
+			return $RETVAL
+		fi
+	fi
+	#start service
+	cd $DAEMON_PATH
+	nohup $DAEMON > /dev/null 2>&1 &
+	PID=$!
+	echo "$DAEMON (pid '$PID')"
+	#echo "Saving PID" $PID " to " $PIDFILE
+	if [ -z $PID ]; then
+		printf "%s\n" "Saving to pidfile Fail"
+	else
+		echo $PID > $PIDFILE
+		printf "%s\n" "Saving pid '$PID' to $PIDFILE.. Ok"
+	fi
+	return $RETVAL
+}
+
+status() {
+	printf "%-30s" "Checking $NAME..."
+	if [ -f $PIDFILE ]; then
+		PID=`cat $PIDFILE`
+		if [ -z "`ps axf | grep ${PID} | grep -v grep`" ]; then
+			printf "%s\n" "Process dead but pidfile '$PID' exists"
+		else
+			echo "Running... pid '$PID'"
+		fi
+	else
+		printf "%s\n" "Service not running"
+	fi
+	return $RETVAL
+}
+
+stop() {
+	printf "%-30s" "Stopping $NAME"
+	PID=`cat $PIDFILE`
+	if [ -f $PIDFILE ]; then
+		kill $PID
+		printf "%s\n" "kill pid '$PID'. OK."
+		rm -f $PIDFILE
+	else
+		printf "%s\n" "pidfile not found. Process is not running."
+	fi
+	return $RETVAL
+}
+
+case "$1" in
+    start)
+        start
+        ;;
+    stop)
+        stop
+        ;;
+    status)
+        status
+        ;;
+    restart)
+        stop
+        start
+        ;;
+    *)
+        echo "Usage: $PROG_NAME {start|stop|status|restart}"
+        exit 1
+        ;;
+esac
+exit $RETVAL
