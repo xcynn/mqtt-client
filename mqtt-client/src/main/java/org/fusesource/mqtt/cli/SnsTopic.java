@@ -65,7 +65,7 @@ public class SnsTopic {
     }
     
     public static void main(String[] args) {
-        new SnsTopic("sns/jasdf/123/asdf");
+        new SnsTopic("/sns/jasdf/123/asdf");
         new SnsTopic("/sns/jasdf/123/asdf");
     }
 }

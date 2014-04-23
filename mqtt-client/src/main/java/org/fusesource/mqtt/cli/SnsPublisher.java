@@ -249,7 +249,7 @@ public class SnsPublisher {
                 } else {
                     stderr(value);
                 }
-                System.exit(2);
+                //System.exit(2);
             }
         });
 
@@ -261,7 +261,7 @@ public class SnsPublisher {
                 } else {
                     stderr(value);
                 }
-                System.exit(2);
+                //System.exit(2);
             }
             public void onSuccess(Void value) {
             }
@@ -296,10 +296,10 @@ public class SnsPublisher {
                         } else {
                             connection.disconnect(new Callback<Void>() {
                                 public void onSuccess(Void value) {
-                                    done.countDown();
+                                    //done.countDown();
                                 }
                                 public void onFailure(Throwable value) {
-                                    done.countDown();
+                                    //done.countDown();
                                 }
                             });                            
                         }
@@ -309,7 +309,7 @@ public class SnsPublisher {
                         if(debug) {
                             value.printStackTrace();
                         }
-                        System.exit(2);
+                        //System.exit(2);
                     }
                 });
             }

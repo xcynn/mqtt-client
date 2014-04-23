@@ -107,8 +107,8 @@ public class PublisherMobileNodeDemo {
         PublisherMobileNodeDemo main = new PublisherMobileNodeDemo();
         
         //xcy Set System property for ssl connection
-        System.setProperty("javax.net.ssl.keyStore", "../conf/mqttclient.ks");
-        System.setProperty("javax.net.ssl.trustStore", "../conf/mqttclient.ts");
+        System.setProperty("javax.net.ssl.keyStore", "./conf/mqttclient.ks");
+        System.setProperty("javax.net.ssl.trustStore", "./conf/mqttclient.ts");
         System.setProperty("javax.net.ssl.keyStorePassword", "password");
         System.setProperty("javax.net.ssl.trustStorePassword", "password");
 

@@ -49,7 +49,7 @@ public class SnsSubscriber {
     protected boolean debug;
     protected boolean showTopic;
     
-    //project
+    //project name
     protected String project;
     
     //Source byte order
@@ -152,6 +152,7 @@ public class SnsSubscriber {
                     }
                     qos = QoS.values()[v];
                 } else if ("-t".equals(arg)) {
+                    topics.clear();
                     topics.add(new Topic(shift(argl), qos));
                 } else {
                     stderr("Invalid usage: unknown option: " + arg);
@@ -218,13 +219,13 @@ public class SnsSubscriber {
         SnsSubscriber main = new SnsSubscriber();                        
         
         //xcy Set System property for ssl connection
-        System.setProperty("javax.net.ssl.keyStore", "../conf/mqttclient.ks");
-        System.setProperty("javax.net.ssl.trustStore", "../conf/mqttclient.ts");
+        System.setProperty("javax.net.ssl.keyStore", "./conf/mqttclient.ks");
+        System.setProperty("javax.net.ssl.trustStore", "./conf/mqttclient.ts");
         System.setProperty("javax.net.ssl.keyStorePassword", "password");
         System.setProperty("javax.net.ssl.trustStorePassword", "password");
         
         //load config from file
-        main.loadConfig("../conf/NM_CpuLoad.config");
+        main.loadConfig("./conf/NM_CpuLoad.config");
         
         // Process the arguments, if any
         main.processArgs(args);                
