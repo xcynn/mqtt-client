@@ -187,6 +187,7 @@ public class Listener {
             }
         });
         
+        // Register an listener
         connection.listener(new org.fusesource.mqtt.client.Listener() {
 
             public void onConnected() {
@@ -229,7 +230,9 @@ public class Listener {
 
         connection.resume(); 
          System.out.println("connection.resume(); success"); //xcy
-        connection.connect(new Callback<Void>() {
+        
+         // Starting connection, subscribe
+         connection.connect(new Callback<Void>() {
             public void onFailure(Throwable value) {
                 if (debug) {
                     value.printStackTrace();
