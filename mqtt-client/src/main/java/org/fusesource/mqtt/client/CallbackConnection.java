@@ -786,9 +786,10 @@ public class CallbackConnection {
     private short getNextMessageId() {
         short rc = nextMessageId;
         nextMessageId++;
-        if(nextMessageId==0) {
+        if(nextMessageId==0) { //xcy messageId 0 is reserved for non-PUBLISH request send
             nextMessageId=1;
         }
+        System.out.printf("getNextMessageId(): %d \n",rc);
         return rc;
     }
 
@@ -824,8 +825,9 @@ public class CallbackConnection {
         }
     }
 
-
+    // to remove messageID from client's list
     private void completeRequest(short id, byte originalType, Object arg) {
+        System.out.printf("completeRequest for id = %d\n", id); //xcy to catch trace of repeated messageId ack, e.g PUBCOMP
         Request request = requests.remove(id);
         if( request!=null ) {
             assert originalType==request.frame.messageType();
@@ -837,13 +839,14 @@ public class CallbackConnection {
                 }
             }
         } else {
-            handleFatalFailure(new ProtocolException("Command from server contained an invalid message id: " + id));
+            System.out.println("Command from server contained an invalid message id: " + id);
+            //handleFatalFailure(new ProtocolException("Command from server contained an invalid message id: " + id));
         }
     }
 
     private void processFrame(MQTTFrame frame) {
         try {
-            System.out.println(frame.messageType()); //xcy
+            System.out.printf("processFrame: messageType %d\n",frame.messageType()); //xcy
             switch(frame.messageType()) {
                 case PUBLISH.TYPE: {
                     PUBLISH publish = new PUBLISH().decode(frame);
@@ -867,6 +870,7 @@ public class CallbackConnection {
                     PUBREC ack = new PUBREC().decode(frame);
                     PUBREL response = new PUBREL();
                     response.messageId(ack.messageId());
+                    System.out.printf("PUBREC on messageId: %d\n",ack.messageId()); //xcy
                     send(new Request(0, response.encode(), null));
                     break;
                 }
@@ -903,6 +907,7 @@ public class CallbackConnection {
         if( listener !=null ) {
             try {
                 Runnable cb = NOOP;
+                System.out.printf("toReceiver: QoS %s\n", publish.qos().toString()); //xcy
                 switch( publish.qos() ) {
                     case AT_LEAST_ONCE:
                         cb = new Runnable() {
@@ -938,7 +943,7 @@ public class CallbackConnection {
     }
 
     private void handleFatalFailure(Throwable error) {
-        System.out.println("handleFatalFailure"); //xcy
+        System.out.println("handleFatalFailure: "+error.toString()); //xcy
         if( failure == null ) {
             failure = error;
             
