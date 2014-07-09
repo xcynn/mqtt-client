@@ -123,7 +123,7 @@ public class CallbackConnection {
             //xcy Try create transport, by passing in an instance of LoginHandler 
             //xcy LoginHandler implements Callback<Transport>.
             createTransport(new LoginHandler(cb, true)); //xcy
-            System.out.println("createTransport(new LoginHandler(cb, true)); done"); //xcy
+            System.out.println("callbackconnection.connect createTransport(new LoginHandler(cb, true)); done"); //xcy
         } catch (Throwable e) {
              System.out.println("catch (Throwable e)"); //xcy
             // This error happens when the MQTT config is invalid, reattempting
@@ -238,17 +238,17 @@ public class CallbackConnection {
      */
     @SuppressWarnings("empty-statement")
     void createTransport(final Callback<Transport> onConnect) throws Exception {
-        System.out.println("enter createTransport"); //xcy
+        System.out.println("enter createTransport(final Callback<Transport> onConnect)"); //xcy
         mqtt.tracer.debug("Connecting");
         String scheme = mqtt.host.getScheme();
 
         final Transport transport;
         if( "tcp".equals(scheme) ) {
             transport = new TcpTransport();
-        }  else if( SslTransport.protocol(scheme)!=null ) {
+        } else if( SslTransport.protocol(scheme)!=null ) {
             SslTransport ssl = new SslTransport();
             if( mqtt.sslContext == null ) {
-                //xcy Below works, but get instance of SSLContext with Default setting, TLSv1 only.
+                //xcy Below getDefault function only get instance of SSLContext with TLSv1 only.
                 //mqtt.sslContext = SSLContext.getDefault();
                 
                 //xcy get instance of SSLContext and initialize it.
@@ -485,9 +485,11 @@ public class CallbackConnection {
             // Socket failure, should we try to reconnect?
              System.out.println("LoginHandler.onFailure"); //xcy
             if( !disconnected && tryReconnect() ) {
+                System.out.println("to reconnect..."); //xcy
                 reconnect(this);
             } else {
                 // nope.
+                System.out.println("not to reconnect..."); //xcy
                 cb.onFailure(value);
             }
         }

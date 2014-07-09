@@ -31,6 +31,7 @@ public class Tracer {
      * @param args
      */
     public void debug(String message, Object...args) {
+        System.out.println(message);//xcy        
     }
 
     /**
