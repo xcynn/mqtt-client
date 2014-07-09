@@ -133,6 +133,7 @@ public class CallbackConnection {
     }
 
     void reconnect() {
+        System.out.println("try reconnect()");
         try {
             // And reconnect.
             createTransport(new LoginHandler(new Callback<Void>() {
