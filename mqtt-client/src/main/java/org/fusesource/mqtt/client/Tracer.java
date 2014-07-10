@@ -31,7 +31,7 @@ public class Tracer {
      * @param args
      */
     public void debug(String message, Object...args) {
-        System.out.println(message);//xcy        
+        System.out.println("MQTT tracer debug: "+message);//xcy        
     }
 
     /**
