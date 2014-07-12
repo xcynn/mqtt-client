@@ -132,7 +132,8 @@ public class CallbackConnection {
             cb.onFailure(e); //xcy should exit
         }
     }
-
+    
+    //xcy reconnect after a TCP transport failure, assuming a session has once been successfully established
     void reconnect() {
         System.out.println("In reconnect()"); //xcy
         try {
@@ -228,6 +229,7 @@ public class CallbackConnection {
         System.out.println("End handleSessionFailure(Throwable error)"+error.toString()); //xcy
     }
 
+    //xcy reconnect upon establishing fresh TCP transport failure, LoginHandler is the argument
     void reconnect(final Callback<Transport> onConnect) {
         System.out.println("In reconnect(final Callback<Transport> onConnect)"); //xcy
         long reconnectDelay = mqtt.reconnectDelay;
@@ -239,8 +241,10 @@ public class CallbackConnection {
         queue.executeAfter(reconnectDelay, TimeUnit.MILLISECONDS, new Task() {
             public void run() {
                 if(disconnected) {
+                    System.out.println("disconnected = true"); //xcy
                     onConnect.onFailure(createDisconnectedError());
                 } else {
+                    System.out.println("disconnected = false"); //xcy
                     try {
                         System.out.println("Call: createTransport(onConnect==LoginHandler); in reconnect(final Callback<Transport> onConnect)"); //xcy
                         createTransport(onConnect);
@@ -269,7 +273,7 @@ public class CallbackConnection {
         final Transport transport;
         if( "tcp".equals(scheme) ) {
             transport = new TcpTransport();
-        } else if( SslTransport.protocol(scheme)!=null ) {
+        }  else if( SslTransport.protocol(scheme)!=null ) {
             SslTransport ssl = new SslTransport();
             if( mqtt.sslContext == null ) {
                 //xcy Below getDefault function only get instance of SSLContext with TLSv1 only.
@@ -348,10 +352,11 @@ public class CallbackConnection {
             tcp.setReceiveBufferSize(mqtt.receiveBufferSize);
             tcp.setSendBufferSize(mqtt.sendBufferSize);
             tcp.setTrafficClass(mqtt.trafficClass);
-            tcp.setUseLocalHost(mqtt.useLocalHost);            
+            tcp.setUseLocalHost(mqtt.useLocalHost);
             tcp.connecting(mqtt.host, mqtt.localAddress);
         }
-
+        
+        System.out.println("setTransportListener for (1) establishing fresh TCP connection"); //xcy
         System.out.println("Call: transport.setTransportListener(new DefaultTransportListener() in createTransport"); //xcy
         transport.setTransportListener(new DefaultTransportListener(){
             public void onTransportConnected() {
@@ -402,7 +407,9 @@ public class CallbackConnection {
 
         //xcy on TCP transport connected
         public void onSuccess(final Transport transport) {
-            System.out.println("In LoginHandler.onSuccess"); //xcy            
+            System.out.println("In LoginHandler.onSuccess"); //xcy
+            
+            System.out.println("setTransportListener for (2) estabishing mqtt session"); //xcy
             System.out.println("Call: transport.setTransportListener(new DefaultTransportListener() in LoginHandler.onSuccess()"); //xcy
             transport.setTransportListener(new DefaultTransportListener() {
                 @Override
@@ -413,14 +420,12 @@ public class CallbackConnection {
 //                    transport.stop(NOOP);
 //                    onFailure(error);
                     System.out.println("Call: to close transport due to onTransportFailure."); //xcy
-                    if(!transport.isClosed()) { //xcy
-                        transport.stop(new Task() {
-                            public void run() {
-                                System.out.println("Transport closed due to onTransportFailure."); //xcy
-                                onFailure(error); //xcy refer to the LoginHandler.onFailure
-                            }
-                        });
-                    }
+                    transport.stop(new Task() {
+                        public void run() {
+                            System.out.println("Transport closed due to onTransportFailure."); //xcy
+                            onFailure(error); //xcy refer to the LoginHandler.onFailure
+                        }
+                    });
                 }
 
                 public void onTransportCommand(Object command) {
@@ -438,6 +443,7 @@ public class CallbackConnection {
                         switch (response.messageType()) {
                             case CONNACK.TYPE:
                                 final CONNACK connack = new CONNACK().decode(response);
+                                System.out.println("connack.code() = "+connack.code());
                                 switch (connack.code()) {
                                     case CONNECTION_ACCEPTED:
                                         mqtt.tracer.debug("MQTT login accepted");
@@ -456,22 +462,20 @@ public class CallbackConnection {
 //                                        transport.stop(NOOP);
 //                                        cb.onFailure(new IOException("Could not connect: " + connack.code()));
                                         System.out.println("Call: to close transport as CONNACK != 0."); //xcy
-                                        if(!transport.isClosed()) { //xcy
-                                            transport.stop(new Task() {
-                                                public void run() {
-                                                    System.out.println("Transport closed as CONNACK != 0."); //xcy
-                                                    if(connack.code() == CONNACK.Code.CONNECTION_REFUSED_SERVER_UNAVAILABLE) {
-                                                        System.out.println("Suspect CONNECTION_REFUSED due to sticky clientId on broker side"); //xcy
-                                                        //xcy Delay to allow Broker close connection after KeepAlive.
-                                                        System.out.printf("Call: sleep for %ds (2*KeepAlive), then Call: cb.onFailure()\n",mqtt.getKeepAlive()*2); //xcy
-                                                        try{ //xcy
-                                                            Thread.sleep(mqtt.getKeepAlive()*2*1000);
-                                                        } catch(InterruptedException ex){}            
-                                                    }
-                                                    cb.onFailure(new IOException("Could not connect: " + connack.code()));
+                                        transport.stop(new Task() {
+                                            public void run() {
+                                                System.out.println("Transport closed as CONNACK != 0."); //xcy
+                                                if(connack.code() == CONNACK.Code.CONNECTION_REFUSED_SERVER_UNAVAILABLE) {
+                                                    System.out.println("Suspect CONNECTION_REFUSED due to sticky clientId on broker side"); //xcy
+                                                    //xcy Delay to allow Broker close connection after KeepAlive.
+                                                    System.out.printf("Call: sleep for %ds (2*KeepAlive), then Call: cb.onFailure()\n",mqtt.getKeepAlive()*2); //xcy
+                                                    try{ //xcy
+                                                        Thread.sleep(mqtt.getKeepAlive()*2*1000);
+                                                    } catch(InterruptedException ex){}            
                                                 }
-                                            });
-                                        }
+                                                onFailure(new IOException("Could not connect: " + connack.code()));
+                                            }
+                                        });
                                 }
                                 break;
                             default:
@@ -480,29 +484,24 @@ public class CallbackConnection {
 //                                transport.stop(NOOP);
 //                                cb.onFailure(new IOException("Could not connect. Received unexpected command: " + response.messageType()));
                                 System.out.println("Call: to close transport due to unexpected MQTT frame."); //xcy
-                                if(!transport.isClosed()) { //xcy
-                                    transport.stop(new Task() {
-                                        public void run() {
-                                            System.out.println("Transport closed due to unexpected MQTT frame."); //xcy
-                                            cb.onFailure(new IOException("Could not connect. Received unexpected command: " + response.messageType()));
-                                        }
-                                    });
-                                }
-
+                                transport.stop(new Task() {
+                                    public void run() {
+                                        System.out.println("Transport closed due to unexpected MQTT frame."); //xcy
+                                        onFailure(new IOException("Could not connect. Received unexpected command: " + response.messageType()));
+                                    }
+                                });
                         }
                     } catch (final ProtocolException e) {
                         mqtt.tracer.debug("Protocol error: %s", e);
 //                        transport.stop(NOOP);
 //                        cb.onFailure(e);
                         System.out.println("Call: to close transport due to Protocol error."); //xcy
-                        if(!transport.isClosed()) { //xcy
-                            transport.stop(new Task() {
-                                public void run() {
-                                    System.out.println("Transport closed due to Protocol error."); //xcy
-                                    cb.onFailure(e);
-                                }
-                            });
-                        }
+                        transport.stop(new Task() {
+                            public void run() {
+                                System.out.println("Transport closed due to Protocol error."); //xcy
+                                onFailure(e);
+                            }
+                        });
                     }
                 }
             });
@@ -568,6 +567,8 @@ public class CallbackConnection {
         if( suspendCount.get() > 0 ) {
             this.transport.suspendRead();
         }
+        
+        System.out.println("setTransportListener for (3) mqtt session operation"); //xcy
         System.out.println("Call: this.transport.setTransportListener(new DefaultTransportListener() in onSessionEstablished"); //xcy
         this.transport.setTransportListener(new DefaultTransportListener() {
             public void onTransportCommand(Object command) {
@@ -1052,35 +1053,37 @@ public class CallbackConnection {
                 if( entry.cb !=null ) {
                     entry.cb.onFailure(failure);
                 }
-            }            
+            }
         }
         
-        // Cleanup the transport.
-        if(heartBeatMonitor!=null) {
-            System.out.println("Call: heartBeatMonitor.stop()"); //xcy
-            heartBeatMonitor.stop();
-            heartBeatMonitor = null;
-        }
-        final Transport t = transport;
-        transport = null;
-        if(t!=null) {
-            System.out.println("transport != null; Call: transport.stop()"); //xcy
-            t.stop(new Task() {
-                public void run() {
-                listener.onDisconnected();
-                
-                System.out.println("Call: listener.onFailure(failure) in handleFatalFailure()");
-                listener.onFailure(failure);
-                }
-            });
-        } else {
-            System.out.println("transport == null;");
-            queue.execute(new Task() {
-                public void run() {
+        if( listener !=null && !disconnected ) {
+            // Cleanup the transport.
+            if(heartBeatMonitor!=null) {
+                System.out.println("Call: heartBeatMonitor.stop()"); //xcy
+                heartBeatMonitor.stop();
+                heartBeatMonitor = null;
+            }
+            final Transport t = transport;
+            transport = null;
+            if(t!=null) {
+                System.out.println("transport != null; Call: transport.stop()"); //xcy
+                t.stop(new Task() {
+                    public void run() {
+                    listener.onDisconnected();
+
                     System.out.println("Call: listener.onFailure(failure) in handleFatalFailure()");
                     listener.onFailure(failure);
-                }
-            });
+                    }
+                });
+            } else {
+                System.out.println("transport == null;");
+                queue.execute(new Task() {
+                    public void run() {
+                        System.out.println("Call: listener.onFailure(failure) in handleFatalFailure()");
+                        listener.onFailure(failure);
+                    }
+                });
+            }
         }
         
 //        System.out.println("listener = "+listener+"; disconnected = "+disconnected);
