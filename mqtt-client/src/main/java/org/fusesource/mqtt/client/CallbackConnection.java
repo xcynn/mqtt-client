@@ -28,7 +28,6 @@ import org.fusesource.hawtdispatch.transport.*;
 import org.fusesource.mqtt.codec.MessageSupport.Acked;
 import org.fusesource.mqtt.codec.*;
 
-import javax.net.ssl.SSLContext;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ProtocolException;
@@ -46,7 +45,6 @@ import java.security.KeyStore;;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLServerSocketFactory;
 
 /**
  * <p>
