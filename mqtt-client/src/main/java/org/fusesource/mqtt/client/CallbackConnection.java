@@ -372,7 +372,8 @@ public class CallbackConnection {
 
             public void onTransportFailure(final IOException error) {
                 System.out.println("In DefaultTransportListener.onTransportFailure() from setTransportListener in createTransport"); //xcy
-                mqtt.tracer.debug("Transport failure: %s", error);
+                mqtt.tracer.debug("Transport failure: " + error);
+                error.printStackTrace();
                 onFailure(error); //onFailure() of this new DefaultTransportListener()
             }
 
@@ -384,7 +385,7 @@ public class CallbackConnection {
                             onConnect.onFailure(error); //xcy onConnect refer to the LoginHandler
                         }
                     });
-                }
+                } 
             }
         });
         System.out.println("Call: transport.setTransportListener(new DefaultTransportListener() in createTransport done"); //xcy
@@ -415,7 +416,7 @@ public class CallbackConnection {
                 @Override
                 public void onTransportFailure(final IOException error) {
                     System.out.println("In DefaultTransportListener.onTransportFailure() from setTransportListener in LoginHandler.onSuccess()"); //xcy
-                    mqtt.tracer.debug("Transport failure: %s", error);
+                    mqtt.tracer.debug("Transport failure: " + error);
                     
 //                    transport.stop(NOOP);
 //                    onFailure(error);
@@ -430,7 +431,7 @@ public class CallbackConnection {
 
                 public void onTransportCommand(Object command) {
                     System.out.println("In DefaultTransportListener.onTransportCommand() from setTransportListener in LoginHandler.onSuccess()"); //xcy
-                    //xcy Catched SslSession establishment here
+                    //xcy SslSession established
                     if( transport instanceof SslTransport ) { //xcy
                         SslTransport mySsl = (SslTransport)transport; //xcy
                         System.out.println("CipherSuite: " + mySsl.getSSLSession().getCipherSuite()); //xcy
@@ -479,7 +480,7 @@ public class CallbackConnection {
                                 }
                                 break;
                             default:
-                                mqtt.tracer.debug("Received unexpected MQTT frame: %d", response.messageType());
+                                mqtt.tracer.debug("Received unexpected MQTT frame: " + response.messageType());
                                 // Naughty MQTT server? No point in reconnecting.
 //                                transport.stop(NOOP);
 //                                cb.onFailure(new IOException("Could not connect. Received unexpected command: " + response.messageType()));
@@ -492,7 +493,7 @@ public class CallbackConnection {
                                 });
                         }
                     } catch (final ProtocolException e) {
-                        mqtt.tracer.debug("Protocol error: %s", e);
+                        mqtt.tracer.debug("Protocol error: " + e);
 //                        transport.stop(NOOP);
 //                        cb.onFailure(e);
                         System.out.println("Call: to close transport due to Protocol error."); //xcy
@@ -1037,7 +1038,7 @@ public class CallbackConnection {
             System.out.println("set failure = error"); //xcy
             failure = error;
             
-            mqtt.tracer.debug("Fatal connection failure: %s", error);
+            mqtt.tracer.debug("Fatal connection failure: " + error);
             // Fail incomplete requests.
             ArrayList<Request> values = new ArrayList(requests.values());
             requests.clear();
