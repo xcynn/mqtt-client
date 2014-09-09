@@ -834,6 +834,7 @@ public class CallbackConnection {
         } else {
             if( overflow.isEmpty() && transport!=null && transport.offer(request.frame) ) {
                 mqtt.tracer.onSend(request.frame);
+            //  System.out.println("request.id="+request.id); //xcy
                 if(request.id==0) {
                     if( request.cb!=null ) {
                         ((Callback<Void>)request.cb).onSuccess(null);
@@ -842,6 +843,7 @@ public class CallbackConnection {
                     this.requests.put(request.id, request);
                 }
             } else {
+                System.out.println("overflow.addLast(request); "+request); //xcy
                 overflow.addLast(request);
             }
         }
@@ -867,6 +869,7 @@ public class CallbackConnection {
         while((request=overflow.peek())!=null) {
             if( this.transport.offer(request.frame) ) {
                 mqtt.tracer.onSend(request.frame);
+            //  System.out.println("request.id="+request.id); //xcy
                 overflow.removeFirst();
                 if(request.id==0) {
                     if( request.cb!=null ) {

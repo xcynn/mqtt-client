@@ -31,7 +31,7 @@ public class Tracer {
      * @param args
      */
     public void debug(String message, Object...args) {
-        System.out.println("MQTT tracer debug: " + message);//xcy        
+        System.out.println("MQTT tracer debug: " + message); //xcy        
     }
 
     /**
@@ -39,6 +39,7 @@ public class Tracer {
      * @param frame
      */
     public void onSend(MQTTFrame frame) {
+        //System.out.println("MQTT tracer onSend: " + frame); //xcy  
     }
 
     /**
@@ -46,6 +47,7 @@ public class Tracer {
      * @param frame
      */
     public void onReceive(MQTTFrame frame) {
+        //System.out.println("MQTT tracer onReceive: " + frame); //xcy  
     }
 
 }
