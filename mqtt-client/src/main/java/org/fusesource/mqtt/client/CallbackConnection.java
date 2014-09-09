@@ -109,12 +109,12 @@ public class CallbackConnection {
         }
     }
 
-    public void connect(final Callback<Void> cb) {
+    public void connect(final Callback<Void> cb) { //xcy cb is connectCallback
         System.out.println("In connect(final Callback<Void> cb)"); //xcy
         assert cb !=null : "Callback should not be null.";
 
         if( transport!=null ) { //xcy check transport status
-            cb.onFailure(new IllegalStateException("Already connected")); //xcy should exit
+            cb.onFailure(new IllegalStateException("Already connected")); //xcy cb.onFailure() should exit the programme
             return;
         }
         try {
@@ -126,8 +126,7 @@ public class CallbackConnection {
         } catch (Throwable e) {
             // This error happens when the MQTT config is invalid, reattempting
             // wont fix this case.
-            System.out.println("Call: cb.onFailure(e);"); //xcy
-            cb.onFailure(e); //xcy should exit
+            cb.onFailure(e); //xcy cb.onFailure() should exit the programme
         }
     }
     
@@ -172,31 +171,26 @@ public class CallbackConnection {
                 }
 
                 public void onFailure(Throwable value) {
-                    System.out.println("In Callback<Void>().onFailure from createTransport(new LoginHandler(...,false)"); //xcy
                     handleFatalFailure(value);
-                    System.out.println("To exit program. Error: "+value); //xcy
-                    //System.exit(2); //xcy
                 }
             }, false));
             System.out.println("Call: createTransport(new LoginHandler(new Callback<Void>(){...},false)); in reconnect() done"); //xcy
         } catch (Throwable e) {
-            System.out.println("In catch (Throwable e): Call handleFatalFailure(e)"); //xcy
             handleFatalFailure(e);
         }
-        
         System.out.println("End reconnect()"); //xcy
     }
     
     void handleSessionFailure(Throwable error) {
         System.out.println("In handleSessionFailure(Throwable error)"+error.toString()); //xcy
+        
         // Socket failure, should we try to reconnect?
         if( !disconnected && (mqtt.reconnectAttemptsMax<0 || reconnects < mqtt.reconnectAttemptsMax ) ) {
 
             mqtt.tracer.debug("Reconnecting transport");
             // Cleanup the previous transport.
-            System.out.println("heartBeatMonitor = "+heartBeatMonitor); //xcy
             if(heartBeatMonitor!=null) {
-                System.out.println("Call: heartBeatMonitor.stop()"); //xcy
+                System.out.println("heartBeatMonitor!=null; Call: heartBeatMonitor.stop()"); //xcy
                 heartBeatMonitor.stop();
                 heartBeatMonitor = null;
             }
@@ -204,9 +198,8 @@ public class CallbackConnection {
             final Transport t = transport;
             transport = null;
 
-            System.out.println("t = transport = "+t); //xcy
             if(t!=null) {
-                System.out.println("Call: t.stop()"); //xcy
+                System.out.println("t!=null; t = transport = "+t); //xcy
                 t.stop(new Task() {
                     public void run() {
                         listener.onDisconnected();
@@ -219,16 +212,14 @@ public class CallbackConnection {
 
         } else {
             // nope.
-            System.out.println("Call: handleFatalFailure(error)"); //xcy
             handleFatalFailure(error);
-            //System.exit(2); //xcy
         }
         
         System.out.println("End handleSessionFailure(Throwable error)"+error.toString()); //xcy
     }
 
-    //xcy reconnect upon establishing fresh TCP transport failure, LoginHandler is the argument
-    void reconnect(final Callback<Transport> onConnect) {
+    //xcy reconnect upon establishing fresh TCP transport failure
+    void reconnect(final Callback<Transport> onConnect) { //xcy arg onConnect is the LoginHandler
         System.out.println("In reconnect(final Callback<Transport> onConnect)"); //xcy
         long reconnectDelay = mqtt.reconnectDelay;
         if( reconnectDelay> 0 && mqtt.reconnectBackOffMultiplier > 1.0 ) {
@@ -323,7 +314,7 @@ public class CallbackConnection {
             ssl.setSSLContext(mqtt.sslContext);
             
             //xcy Debug for SSL
-            System.out.println("Suties:");
+            System.out.println("Suties:"); //xcy
             for(String str : mqtt.sslContext.getSupportedSSLParameters().getCipherSuites()) {
                  System.out.println(str);
             }
@@ -343,7 +334,7 @@ public class CallbackConnection {
         transport.setProtocolCodec(new MQTTProtocolCodec());
 
         if( transport instanceof TcpTransport ) {
-            System.out.println("Set tcp transport field;"); //xcy
+            System.out.println("instanceof TcpTransport; Set tcp transport field;"); //xcy
             TcpTransport tcp = (TcpTransport)transport;
             tcp.setMaxReadRate(mqtt.maxReadRate);
             tcp.setMaxWriteRate(mqtt.maxWriteRate);
@@ -377,13 +368,13 @@ public class CallbackConnection {
 
             private void onFailure(final Throwable error) {
                 System.out.println("In DefaultTransportListener.onFailure() from setTransportListener in createTransport"); //xcy
-                if(!transport.isClosed()) {
+//                if(!transport.isClosed()) {
                     transport.stop(new Task() {
                         public void run() {
                             onConnect.onFailure(error); //xcy onConnect refer to the LoginHandler
                         }
                     });
-                } 
+//                } 
             }
         });
         System.out.println("Call: transport.setTransportListener(new DefaultTransportListener() in createTransport done"); //xcy
@@ -432,8 +423,8 @@ public class CallbackConnection {
                     //xcy SslSession established
                     if( transport instanceof SslTransport ) { //xcy
                         SslTransport mySsl = (SslTransport)transport; //xcy
-                        System.out.println("CipherSuite: " + mySsl.getSSLSession().getCipherSuite()); //xcy
-                        System.out.println("Protocol: " + mySsl.getSSLSession().getProtocol()); //xcy
+                        System.out.println("CipherSuite used: " + mySsl.getSSLSession().getCipherSuite()); //xcy
+                        System.out.println("Protocol used: " + mySsl.getSSLSession().getProtocol()); //xcy
                     }  //xcy
                     
                     final MQTTFrame response = (MQTTFrame) command;
@@ -442,7 +433,7 @@ public class CallbackConnection {
                         switch (response.messageType()) {
                             case CONNACK.TYPE:
                                 final CONNACK connack = new CONNACK().decode(response);
-                                System.out.println("connack.code() = "+connack.code());
+                                System.out.println("connack.code() = "+connack.code()); //xcy
                                 switch (connack.code()) {
                                     case CONNECTION_ACCEPTED:
                                         mqtt.tracer.debug("MQTT login accepted");
@@ -466,11 +457,6 @@ public class CallbackConnection {
                                                 System.out.println("Transport closed as CONNACK != 0."); //xcy
                                                 if(connack.code() == CONNACK.Code.CONNECTION_REFUSED_SERVER_UNAVAILABLE) {
                                                     System.out.println("Suspect CONNECTION_REFUSED due to sticky clientId on broker side"); //xcy
-                                                    //xcy Delay to allow Broker close connection after KeepAlive.
-                                                    System.out.printf("Call: sleep for %ds (2*KeepAlive), then Call: cb.onFailure()\n",mqtt.getKeepAlive()*2); //xcy
-                                                    try{ //xcy
-                                                        Thread.sleep(mqtt.getKeepAlive()*2*1000);
-                                                    } catch(InterruptedException ex){}            
                                                 }
                                                 onFailure(new IOException("Could not connect: " + connack.code()));
                                             }
@@ -544,12 +530,12 @@ public class CallbackConnection {
             System.out.println("disconnected = "+disconnected+"; tryReconnect() = "+tryReconnect()); //xcy
             if( !disconnected && tryReconnect() ) {
                 System.out.println("Call: reconnect(this)..."); //xcy
-                reconnect(this);
+                reconnect(this); //xcy "this" refer to the LoginHandler
             } else {
                 // nope.
                 System.out.println("No more reconnect(this)"); //xcy
                 System.out.println("Call: cb.onFailure(value)"); //xcy
-                cb.onFailure(value); //xcy cb.onFailure() should exit the programme
+                cb.onFailure(value); //xcy cb.onFailure() should exit the programme, cb is connectCallback
             }
         }
     }
@@ -557,7 +543,7 @@ public class CallbackConnection {
     boolean onRefillCalled =false;
     public void onSessionEstablished(Transport transport) {
         if (failure != null) { //xcy
-            System.out.println("Set failure to null");
+            System.out.println("failure != null; Set failure to null"); //xcy
             failure = null; //xcy clear failure
         }
         
@@ -571,24 +557,24 @@ public class CallbackConnection {
         System.out.println("Call: this.transport.setTransportListener(new DefaultTransportListener() in onSessionEstablished"); //xcy
         this.transport.setTransportListener(new DefaultTransportListener() {
             public void onTransportCommand(Object command) {
-                System.out.println("In DefaultTransportListener.onTransportCommand() from setTransportListener in onSessionEstablished"); //xcy
+            //  System.out.println("In DefaultTransportListener.onTransportCommand() from setTransportListener in onSessionEstablished"); //xcy
                 MQTTFrame frame = (MQTTFrame) command;
                 mqtt.tracer.onReceive(frame);
                 processFrame(frame);
             }
             public void onRefill() {
-                System.out.println("In DefaultTransportListener.onRefill() from setTransportListener in onSessionEstablished"); //xcy
+            //  System.out.println("In DefaultTransportListener.onRefill() from setTransportListener in onSessionEstablished"); //xcy
                 onRefillCalled =true;
                 drainOverflow();
             }
 
             public void onTransportFailure(IOException error) {
-                System.out.println("In DefaultTransportListener.onTransportFailure() from setTransportListener in onSessionEstablished"); //xcy
+            //  System.out.println("In DefaultTransportListener.onTransportFailure() from setTransportListener in onSessionEstablished"); //xcy
                 handleSessionFailure(error);
             }
         });
         pingedAt = 0;
-        System.out.println("verify: mqtt.getKeepAlive() = "+mqtt.getKeepAlive());
+        System.out.println("verify: mqtt.getKeepAlive() = "+mqtt.getKeepAlive()); //xcy
         if(mqtt.getKeepAlive()>0) {
             heartBeatMonitor = new HeartBeatMonitor();
             heartBeatMonitor.setWriteInterval((mqtt.getKeepAlive() * 1000) / 2);
@@ -676,18 +662,12 @@ public class CallbackConnection {
         return failure;
     }
 
-    /*//xcy
-    public void clearFailure() {
-        System.out.println("In clearFailure()");
-        queue.assertExecuting();
-        failure = null;
-    }//*/
-
     public void disconnect(final Callback<Void> onComplete) //xcy onComplete implement Callback-interface
     { 
         System.out.println("In disconnect(final Callback<Void> onComplete)"); //xcy
-        System.out.println("disconnected = "+disconnected); //xcy
+        
         if( disconnected ) { //if it is a graceful disconnection
+            System.out.println("disconnected = true"); //xcy
             if(onComplete!=null){
                 onComplete.onSuccess(null);
             }
@@ -756,8 +736,9 @@ public class CallbackConnection {
      */
     public void kill(final Callback<Void> onComplete) {
         System.out.println("In kill(final Callback<Void> onComplete)"); //xcy
-        System.out.println("disconnected = "+disconnected); //xcy
+        
         if( disconnected ) {
+            System.out.println("disconnected = true"); //xcy
             if(onComplete!=null){
                 onComplete.onSuccess(null);
             }
@@ -873,7 +854,7 @@ public class CallbackConnection {
         if(nextMessageId==0) { //xcy messageId 0 is reserved for non-PUBLISH request send
             nextMessageId=1;
         }
-        System.out.printf("getNextMessageId(): %d \n",rc);
+    //  System.out.printf("getNextMessageId(): %d \n",rc);
         return rc;
     }
 
@@ -911,7 +892,7 @@ public class CallbackConnection {
 
     // to remove messageID from client's list
     private void completeRequest(short id, byte originalType, Object arg) {
-        System.out.printf("In completeRequest(short id, byte originalType, Object arg) for id = %d\n", id); //xcy to catch trace of repeated messageId ack, e.g PUBCOMP
+    //  System.out.printf("In completeRequest(short id, byte originalType, Object arg) for id = %d\n", id); //xcy to catch trace of repeated messageId ack, e.g PUBCOMP
         Request request = requests.remove(id);
         if( request!=null ) {
             assert originalType==request.frame.messageType();
@@ -923,7 +904,6 @@ public class CallbackConnection {
                 }
             }
         } else {
-            System.out.println("Command from server contained an invalid message id: " + id);
             handleFatalFailure(new ProtocolException("Command from server contained an invalid message id: " + id));
         }
     }
@@ -954,7 +934,7 @@ public class CallbackConnection {
                     PUBREC ack = new PUBREC().decode(frame);
                     PUBREL response = new PUBREL();
                     response.messageId(ack.messageId());
-                    System.out.printf("PUBREC on messageId: %d\n",ack.messageId()); //xcy
+                //  System.out.printf("PUBREC on messageId: %d\n",ack.messageId()); //xcy
                     send(new Request(0, response.encode(), null));
                     break;
                 }
@@ -981,7 +961,6 @@ public class CallbackConnection {
                     throw new ProtocolException("Unexpected MQTT command type: "+frame.messageType());
             }
         } catch (Throwable e) {
-            System.out.println("Call:  handleFatalFailure(e) in processFrame()"); //xcy
             handleFatalFailure(e);
         }
     }
@@ -989,11 +968,11 @@ public class CallbackConnection {
     static public final Task NOOP = Dispatch.NOOP;
 
     private void toReceiver(final PUBLISH publish) {
-        System.out.println("In toReceiver(final PUBLISH publish)"); //xcy
+    //  System.out.println("In toReceiver(final PUBLISH publish)"); //xcy
         if( listener !=null ) {
             try {
                 Runnable cb = NOOP;
-                System.out.printf("toReceiver: QoS %s\n", publish.qos().toString()); //xcy
+            //  System.out.printf("toReceiver: QoS %s\n", publish.qos().toString()); //xcy
                 switch( publish.qos() ) {
                     case AT_LEAST_ONCE:
                         cb = new Runnable() {
@@ -1031,9 +1010,10 @@ public class CallbackConnection {
 
     private void handleFatalFailure(Throwable error) {
         System.out.println("In handleFatalFailure(Throwable error): "+error.toString()); //xcy
-        System.out.println("failure = "+failure); //xcy
+        System.out.println(error.getStackTrace()); //xcy
+        
         if( failure == null ) {
-            System.out.println("set failure = error"); //xcy
+            System.out.println("failure == null; set failure = error"); //xcy
             failure = error;
             
             mqtt.tracer.debug("Fatal connection failure: " + error);
@@ -1058,7 +1038,7 @@ public class CallbackConnection {
         if( listener !=null && !disconnected ) {
             // Cleanup the transport.
             if(heartBeatMonitor!=null) {
-                System.out.println("Call: heartBeatMonitor.stop()"); //xcy
+                System.out.println("heartBeatMonitor!=null; Call: heartBeatMonitor.stop()"); //xcy
                 heartBeatMonitor.stop();
                 heartBeatMonitor = null;
             }
@@ -1070,25 +1050,25 @@ public class CallbackConnection {
                     public void run() {
                     listener.onDisconnected();
 
-                    System.out.println("Call: listener.onFailure(failure) in handleFatalFailure()");
+                //  System.out.println("Call: listener.onFailure(failure) in handleFatalFailure()"); //xcy
                     listener.onFailure(failure);
                     }
                 });
             } else {
-                System.out.println("transport == null;");
+                System.out.println("transport == null;"); //xcy
                 queue.execute(new Task() {
                     public void run() {
-                        System.out.println("Call: listener.onFailure(failure) in handleFatalFailure()");
+                    //  System.out.println("Call: listener.onFailure(failure) in handleFatalFailure()"); //xcy
                         listener.onFailure(failure);
                     }
                 });
             }
         }
         
-//        System.out.println("listener = "+listener+"; disconnected = "+disconnected);
+//    //  System.out.println("listener = "+listener+"; disconnected = "+disconnected);
 //        if( listener !=null && !disconnected ) {
 //            try {
-//                System.out.println("Call: listener.onFailure(failure) in handleFatalFailure()");
+//            //  System.out.println("Call: listener.onFailure(failure) in handleFatalFailure()");
 //                listener.onFailure(failure);
 //            } catch (Exception e) {
 //                Thread.currentThread().getUncaughtExceptionHandler().uncaughtException(Thread.currentThread(), e);
