@@ -194,13 +194,8 @@ public class Publisher {
         main.execute();
         System.exit(0);
     }
-/**
- * args: hi 
- * output: ksok
- * comments: 
- */
+
     private void execute() {
-       
         final CallbackConnection connection = mqtt.callbackConnection();
 
         final CountDownLatch done = new CountDownLatch(1);

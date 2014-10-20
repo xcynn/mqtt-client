@@ -124,7 +124,8 @@ public class CallbackConnection {
 
     private HashMap<UTF8Buffer, QoS> activeSubs = new HashMap<UTF8Buffer, QoS>();
 
-    //xcy constructor
+
+    // constructor
     public CallbackConnection(MQTT mqtt) {
         this.mqtt = mqtt;
         if(this.mqtt.dispatchQueue == null) {
@@ -154,7 +155,7 @@ public class CallbackConnection {
             cb.onFailure(e); //xcy cb.onFailure() should exit the programme
         }
     }
-    
+
     //xcy reconnect after a TCP transport failure, assuming a session has once been successfully established
     void reconnect() {
         System.out.println("In reconnect()"); //xcy
@@ -163,6 +164,7 @@ public class CallbackConnection {
             System.out.println("Call: createTransport(new LoginHandler(new Callback<Void>(){...},false)); in reconnect()"); //xcy
             createTransport(new LoginHandler(new Callback<Void>() {
                 public void onSuccess(Void value) {
+
                     System.out.println("In Callback<Void>().onSuccess from createTransport(new LoginHandler(...,false)"); //xcy
                     mqtt.tracer.debug("Restoring MQTT connection state");
                     // Setup a new overflow so that the replay can be sent out before the original overflow list.
@@ -208,7 +210,6 @@ public class CallbackConnection {
     
     void handleSessionFailure(Throwable error) {
         System.out.println("In handleSessionFailure(Throwable error)"+error.toString()); //xcy
-        
         // Socket failure, should we try to reconnect?
         if( !disconnected && (mqtt.reconnectAttemptsMax<0 || reconnects < mqtt.reconnectAttemptsMax ) ) {
 
@@ -219,7 +220,6 @@ public class CallbackConnection {
                 heartBeatMonitor.stop();
                 heartBeatMonitor = null;
             }
-
             final Transport t = transport;
             transport = null;
 
@@ -240,7 +240,6 @@ public class CallbackConnection {
             // nope.
             handleFatalFailure(error);
         }
-        
         System.out.println("End handleSessionFailure(Throwable error)"+error.toString()); //xcy
     }
 
@@ -292,52 +291,8 @@ public class CallbackConnection {
         }  else if( SslTransport.protocol(scheme)!=null ) {
             SslTransport ssl = new SslTransport();
             if( mqtt.sslContext == null ) {
-                //xcy Below getDefault function only get instance of SSLContext with TLSv1 only.
-                //mqtt.sslContext = SSLContext.getDefault();
-                
-                //xcy get instance of SSLContext and initialize it.
-                char[] keystorepass = System.getProperty("javax.net.ssl.keyStorePassword").toCharArray(); //keystore password
-                char[] keypass = System.getProperty("javax.net.ssl.keyStorePassword").toCharArray(); //key password
-                String keystorename = System.getProperty("javax.net.ssl.keyStore");
-                char[] truststorepass = System.getProperty("javax.net.ssl.trustStorePassword").toCharArray(); //keystore password
-                String truststorename = System.getProperty("javax.net.ssl.trustStore");
-                
-                // First initialize the key and trust material.
-                FileInputStream finks = null;
-                FileInputStream fints = null;
-                try{
-                    finks = new FileInputStream(keystorename);
-                    fints = new FileInputStream(truststorename);
-                    KeyStore ksKeys = KeyStore.getInstance("JKS");
-                    ksKeys.load(finks, keystorepass);
-                    KeyStore ksTrust = KeyStore.getInstance("JKS");
-                    ksTrust.load(fints, truststorepass);
-                    
-                    // KeyManager's decide which key material to use.
-                    KeyManagerFactory kmf =
-                        KeyManagerFactory.getInstance("SunX509");
-                    kmf.init(ksKeys, keypass);
-                    
-                    // TrustManager's decide whether to allow connections.
-                    TrustManagerFactory tmf =
-                        TrustManagerFactory.getInstance("SunX509");
-                    tmf.init(ksTrust);
-                    mqtt.sslContext = SSLContext.getInstance(SslTransport.protocol(scheme));
-                    mqtt.sslContext.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);
-                
-                } catch (FileNotFoundException e) {
-                    System.err.println("FileNotFoundException: " + e.getMessage());
-                } catch (IOException e) {
-                    System.err.println("IOException: " + e.getMessage());
-                } finally {
-                    finks.close();
-                    fints.close();
-                }
-                                
-                //xcy display CipherSuites in DefaultSSLParameters in current SSLContext
-                System.out.println("Protocol: "+mqtt.sslContext.getProtocol()); //xcy
+                mqtt.sslContext = SSLContext.getDefault();
             }
-            
             ssl.setSSLContext(mqtt.sslContext);
             
             //xcy Debug for SSL
@@ -345,6 +300,7 @@ public class CallbackConnection {
             for(String str : mqtt.sslContext.getSupportedSSLParameters().getCipherSuites()) {
                  System.out.println(str);
             }
+
             //String csList = "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384"; //xcy a TSLv1.2 cipher suite
             //ssl.setEnabledCypherSuites(csList); //xcy Client can choose to enable selected cipher suite
             
@@ -371,7 +327,7 @@ public class CallbackConnection {
             tcp.setUseLocalHost(mqtt.useLocalHost);
             tcp.connecting(mqtt.host, mqtt.localAddress);
         }
-        
+
         System.out.println("setTransportListener for (1) establishing fresh TCP connection"); //xcy
         System.out.println("Call: transport.setTransportListener(new DefaultTransportListener() in createTransport"); //xcy
         transport.setTransportListener(new DefaultTransportListener(){
@@ -419,7 +375,7 @@ public class CallbackConnection {
         final Callback<Void> cb;
         private final boolean initialConnect;
 
-        //xcy constructor
+        //constructor
         LoginHandler(Callback<Void> cb, boolean initialConnect) {
             this.cb = cb;
             this.initialConnect = initialConnect;
@@ -550,7 +506,7 @@ public class CallbackConnection {
                         reconnects,mqtt.connectAttemptsMax); //xcy
                 return mqtt.connectAttemptsMax<0 || reconnects < mqtt.connectAttemptsMax;
             }
-
+            
             System.out.printf("initialConnect=false; reconnects=%d; reconnectAttemptsMax=%d\n",
                         reconnects,mqtt.reconnectAttemptsMax); //xcy
             return mqtt.reconnectAttemptsMax<0 || reconnects < mqtt.reconnectAttemptsMax;
@@ -574,11 +530,7 @@ public class CallbackConnection {
 
     boolean onRefillCalled =false;
     public void onSessionEstablished(Transport transport) {
-        if (failure != null) { //xcy
-            System.out.println("failure != null; Set failure to null"); //xcy
-            failure = null; //xcy clear failure
-        }
-        
+
         System.out.println("In onSessionEstablished(Transport transport)"); //xcy
         this.transport = transport;
         if( suspendCount.get() > 0 ) {
