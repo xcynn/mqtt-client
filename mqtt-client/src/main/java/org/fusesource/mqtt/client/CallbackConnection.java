@@ -18,26 +18,51 @@
 
 package org.fusesource.mqtt.client;
 
+import static org.fusesource.hawtbuf.Buffer.utf8;
+import static org.fusesource.hawtdispatch.Dispatch.createQueue;
+
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.ProtocolException;
+import java.net.SocketAddress;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import javax.net.ssl.SSLContext;
+
 import org.fusesource.hawtbuf.Buffer;
 import org.fusesource.hawtbuf.HexSupport;
 import org.fusesource.hawtbuf.UTF8Buffer;
 import org.fusesource.hawtdispatch.Dispatch;
 import org.fusesource.hawtdispatch.DispatchQueue;
 import org.fusesource.hawtdispatch.Task;
-import org.fusesource.hawtdispatch.transport.*;
+import org.fusesource.hawtdispatch.transport.DefaultTransportListener;
+import org.fusesource.hawtdispatch.transport.HeartBeatMonitor;
+import org.fusesource.hawtdispatch.transport.SslTransport;
+import org.fusesource.hawtdispatch.transport.TcpTransport;
+import org.fusesource.hawtdispatch.transport.Transport;
+import org.fusesource.mqtt.codec.CONNACK;
+import org.fusesource.mqtt.codec.DISCONNECT;
+import org.fusesource.mqtt.codec.MQTTFrame;
+import org.fusesource.mqtt.codec.MQTTProtocolCodec;
 import org.fusesource.mqtt.codec.MessageSupport.Acked;
-import org.fusesource.mqtt.codec.*;
-
-import java.io.IOException;
-import java.net.InetSocketAddress;
-import java.net.ProtocolException;
-import java.net.SocketAddress;
-import java.util.*;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.fusesource.hawtbuf.Buffer.utf8;
-import static org.fusesource.hawtdispatch.Dispatch.createQueue;
+import org.fusesource.mqtt.codec.PINGREQ;
+import org.fusesource.mqtt.codec.PINGRESP;
+import org.fusesource.mqtt.codec.PUBACK;
+import org.fusesource.mqtt.codec.PUBCOMP;
+import org.fusesource.mqtt.codec.PUBLISH;
+import org.fusesource.mqtt.codec.PUBREC;
+import org.fusesource.mqtt.codec.PUBREL;
+import org.fusesource.mqtt.codec.SUBACK;
+import org.fusesource.mqtt.codec.SUBSCRIBE;
+import org.fusesource.mqtt.codec.UNSUBACK;
+import org.fusesource.mqtt.codec.UNSUBSCRIBE;
 
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -54,7 +79,7 @@ import javax.net.ssl.SSLContext;
  * @author <a href="http://hiramchirino.com">Hiram Chirino</a>
  */
 public class CallbackConnection {
-
+    
     private static class Request {
         final MQTTFrame frame;
         private final short id;
@@ -86,7 +111,7 @@ public class CallbackConnection {
     private Transport transport;
     private Listener listener = DEFAULT_LISTENER;
     private Runnable refiller;
-    private HashMap<Short, Request> requests = new HashMap<Short, Request>();
+    private Map<Short, Request> requests = new ConcurrentHashMap<Short, Request>();
     private LinkedList<Request> overflow = new LinkedList<Request>();
     private HashSet<Short> processed = new HashSet<Short>();
     private Throwable failure;
@@ -142,9 +167,9 @@ public class CallbackConnection {
                     mqtt.tracer.debug("Restoring MQTT connection state");
                     // Setup a new overflow so that the replay can be sent out before the original overflow list.
                     LinkedList<Request> originalOverflow = overflow;
-                    HashMap<Short, Request> originalRequests = requests;
+                    Map<Short, Request> originalRequests = requests;
                     overflow = new LinkedList<Request>();
-                    requests = new HashMap<Short, Request>();
+                    requests = new ConcurrentHashMap<Short, Request>();
 
                     // Restore any active subscriptions.
                     if (!activeSubs.isEmpty()) {
@@ -201,6 +226,7 @@ public class CallbackConnection {
             if(t!=null) {
                 System.out.println("t!=null; t = transport = "+t); //xcy
                 t.stop(new Task() {
+                    @Override
                     public void run() {
                         listener.onDisconnected();
                         reconnect();
@@ -228,6 +254,7 @@ public class CallbackConnection {
         reconnectDelay = Math.min(reconnectDelay, mqtt.reconnectDelayMax);
         reconnects += 1;
         queue.executeAfter(reconnectDelay, TimeUnit.MILLISECONDS, new Task() {
+            @Override
             public void run() {
                 if(disconnected) {
                     System.out.println("disconnected = true"); //xcy
@@ -327,7 +354,7 @@ public class CallbackConnection {
         }
 
         if( mqtt.blockingExecutor == null ) {
-            mqtt.blockingExecutor = mqtt.getBlockingThreadPool();
+            mqtt.blockingExecutor = MQTT.getBlockingThreadPool();
         }
         transport.setBlockingExecutor(mqtt.blockingExecutor);
         transport.setDispatchQueue(queue);
@@ -348,6 +375,7 @@ public class CallbackConnection {
         System.out.println("setTransportListener for (1) establishing fresh TCP connection"); //xcy
         System.out.println("Call: transport.setTransportListener(new DefaultTransportListener() in createTransport"); //xcy
         transport.setTransportListener(new DefaultTransportListener(){
+            @Override
             public void onTransportConnected() {
                 System.out.println("In DefaultTransportListener.onTransportConnected() from setTransportListener in createTransport"); //xcy
                 mqtt.tracer.debug("Transport connected");
@@ -359,6 +387,7 @@ public class CallbackConnection {
                 }
             }
 
+            @Override
             public void onTransportFailure(final IOException error) {
                 System.out.println("In DefaultTransportListener.onTransportFailure() from setTransportListener in createTransport"); //xcy
                 mqtt.tracer.debug("Transport failure: " + error);
@@ -370,6 +399,7 @@ public class CallbackConnection {
                 System.out.println("In DefaultTransportListener.onFailure() from setTransportListener in createTransport"); //xcy
 //                if(!transport.isClosed()) {
                     transport.stop(new Task() {
+                        @Override
                         public void run() {
                             onConnect.onFailure(error); //xcy onConnect refer to the LoginHandler
                         }
@@ -418,6 +448,7 @@ public class CallbackConnection {
                     });
                 }
 
+                @Override
                 public void onTransportCommand(Object command) {
                     System.out.println("In DefaultTransportListener.onTransportCommand() from setTransportListener in LoginHandler.onSuccess()"); //xcy
                     //xcy SslSession established
@@ -441,6 +472,7 @@ public class CallbackConnection {
                                         cb.onSuccess(null);
                                         listener.onConnected();
                                         queue.execute(new Task() {
+                                            @Override
                                             public void run() {
                                                 drainOverflow();
                                             }
@@ -517,11 +549,11 @@ public class CallbackConnection {
                 System.out.printf("initialConnect=true; reconnects=%d; connectAttemptsMax=%d\n",
                         reconnects,mqtt.connectAttemptsMax); //xcy
                 return mqtt.connectAttemptsMax<0 || reconnects < mqtt.connectAttemptsMax;
-            } else {
-                System.out.printf("initialConnect=false; reconnects=%d; reconnectAttemptsMax=%d\n",
-                        reconnects,mqtt.reconnectAttemptsMax); //xcy                
-                return mqtt.reconnectAttemptsMax<0 || reconnects < mqtt.reconnectAttemptsMax;
             }
+
+            System.out.printf("initialConnect=false; reconnects=%d; reconnectAttemptsMax=%d\n",
+                        reconnects,mqtt.reconnectAttemptsMax); //xcy
+            return mqtt.reconnectAttemptsMax<0 || reconnects < mqtt.reconnectAttemptsMax;
         }
 
         public void onFailure(Throwable value) { //xcy TCP layer failure
@@ -556,18 +588,21 @@ public class CallbackConnection {
         System.out.println("setTransportListener for (3) mqtt session operation"); //xcy
         System.out.println("Call: this.transport.setTransportListener(new DefaultTransportListener() in onSessionEstablished"); //xcy
         this.transport.setTransportListener(new DefaultTransportListener() {
+            @Override
             public void onTransportCommand(Object command) {
             //  System.out.println("In DefaultTransportListener.onTransportCommand() from setTransportListener in onSessionEstablished"); //xcy
                 MQTTFrame frame = (MQTTFrame) command;
                 mqtt.tracer.onReceive(frame);
                 processFrame(frame);
             }
+            @Override
             public void onRefill() {
             //  System.out.println("In DefaultTransportListener.onRefill() from setTransportListener in onSessionEstablished"); //xcy
                 onRefillCalled =true;
                 drainOverflow();
             }
 
+            @Override
             public void onTransportFailure(IOException error) {
             //  System.out.println("In DefaultTransportListener.onTransportFailure() from setTransportListener in onSessionEstablished"); //xcy
                 handleSessionFailure(error);
@@ -581,6 +616,7 @@ public class CallbackConnection {
             heartBeatMonitor.setTransport(this.transport);
             heartBeatMonitor.suspendRead(); // to match the suspended state of the transport.
             heartBeatMonitor.setOnKeepAlive(new Task() {
+                @Override
                 public void run() {
                     // Don't care if the offer is rejected, just means we have data outbound.
                     if(!disconnected && pingedAt==0) {
@@ -591,6 +627,7 @@ public class CallbackConnection {
                             final long suspends = suspendChanges.get();
                             pingedAt = now;
                             queue.executeAfter(CallbackConnection.this.mqtt.getKeepAlive(), TimeUnit.SECONDS, new Task() {
+                                @Override
                                 public void run() {
                                     if (now == pingedAt) {
                                         // if the connection remained suspend we will never get the ping response..
@@ -689,6 +726,7 @@ public class CallbackConnection {
                         heartBeatMonitor = null;
                     }
                     transport.stop(new Task() {
+                        @Override
                         public void run() {
                             listener.onDisconnected();
                             if (onComplete != null) {
@@ -750,6 +788,7 @@ public class CallbackConnection {
             heartBeatMonitor = null;
         }
         transport.stop(new Task() {
+            @Override
             public void run() {
                 listener.onDisconnected();
                 if (onComplete != null) {
@@ -787,6 +826,7 @@ public class CallbackConnection {
             cb.onFailure(createListenerNotSetError());
         } else {
             send(new SUBSCRIBE().topics(topics), new ProxyCallback<byte[]>(cb){
+                @Override
                 public void onSuccess(byte[] value) {
                     for (Topic topic : topics) {
                         activeSubs.put(topic.name(), topic.qos());
@@ -806,6 +846,7 @@ public class CallbackConnection {
             return;
         }
         send(new UNSUBSCRIBE().topics(topics), new ProxyCallback(cb){
+            @Override
             public void onSuccess(Object value) {
                 for (UTF8Buffer topic : topics) {
                     activeSubs.remove(topic);
@@ -832,6 +873,11 @@ public class CallbackConnection {
                 request.cb.onFailure(failure);
             }
         } else {
+            // Put the request in the map before sending it over the wire. 
+            if(request.id!=0) {
+                this.requests.put(request.id, request);
+            }
+
             if( overflow.isEmpty() && transport!=null && transport.offer(request.frame) ) {
                 mqtt.tracer.onSend(request.frame);
             //  System.out.println("request.id="+request.id); //xcy
@@ -839,11 +885,13 @@ public class CallbackConnection {
                     if( request.cb!=null ) {
                         ((Callback<Void>)request.cb).onSuccess(null);
                     }
-                } else {
-                    this.requests.put(request.id, request);
+                    
                 }
             } else {
                 System.out.println("overflow.addLast(request); "+request); //xcy
+                
+                // Remove it from the request.
+                this.requests.remove(request.id);
                 overflow.addLast(request);
             }
         }
