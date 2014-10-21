@@ -294,9 +294,9 @@ public class CallbackConnection {
             ssl.setSSLContext(mqtt.sslContext);
             
             //xcy Show all SSL Cipher Suites available
-            logger.debug("Available Cipher Suties:"); //xcy
+            logger.trace("Available Cipher Suties:"); //xcy
             for(String str : mqtt.sslContext.getSupportedSSLParameters().getCipherSuites()) {
-                 logger.debug(str);
+                 logger.trace(str);
             }
 
             //String csList = "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384"; //xcy a TSLv1.2 cipher suite
