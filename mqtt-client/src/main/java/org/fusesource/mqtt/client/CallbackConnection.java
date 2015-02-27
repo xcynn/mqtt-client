@@ -824,12 +824,13 @@ public class CallbackConnection {
         } else {
             // Put the request in the map before sending it over the wire. 
             if(request.id!=0) {
+                logger.debug("to put request.id="+request.id); //xcy
                 this.requests.put(request.id, request);
             }
 
             if( overflow.isEmpty() && transport!=null && transport.offer(request.frame) ) {
                 mqtt.tracer.onSend(request.frame);
-                logger.trace("request.id="+request.id); //xcy
+                logger.debug("sent request.id="+request.id); //xcy
                 if(request.id==0) {
                     if( request.cb!=null ) {
                         ((Callback<Void>)request.cb).onSuccess(null);
@@ -837,10 +838,11 @@ public class CallbackConnection {
                     
                 }
             } else {
-                logger.debug("overflow.addLast(request); "+request); //xcy
-                
                 // Remove it from the request.
+                logger.debug("to remove request.id="+request.id); //xcy
                 this.requests.remove(request.id);
+                
+                logger.debug("overflow.addLast(request); "+request); //xcy
                 overflow.addLast(request);
             }
         }
@@ -893,6 +895,8 @@ public class CallbackConnection {
     // to remove messageID from client's list
     private void completeRequest(short id, byte originalType, Object arg) {
         logger.trace("In completeRequest(short id, byte originalType, Object arg) for id = {}", id); //xcy to catch trace of repeated messageId ack, e.g PUBCOMP
+        
+        logger.debug("to remove request.id="+id); //xcy
         Request request = requests.remove(id);
         if( request!=null ) {
             assert originalType==request.frame.messageType();
@@ -904,7 +908,8 @@ public class CallbackConnection {
                 }
             }
         } else {
-            handleFatalFailure(new ProtocolException("Command from server contained an invalid message id: " + id));
+            logger.warn("Command from server contained an invalid message id: {}", id); //xcy
+            //handleFatalFailure(new ProtocolException("Command from server contained an invalid message id: " + id));
         }
     }
 
@@ -934,12 +939,13 @@ public class CallbackConnection {
                     PUBREC ack = new PUBREC().decode(frame);
                     PUBREL response = new PUBREL();
                     response.messageId(ack.messageId());
-                    logger.trace("PUBREC on messageId: {}",ack.messageId()); //xcy
+                    logger.debug("PUBREC on messageId: {}, to respond with PUBREL.",ack.messageId()); //xcy
                     send(new Request(0, response.encode(), null));
                     break;
                 }
                 case PUBCOMP.TYPE:{
                     PUBCOMP ack = new PUBCOMP().decode(frame);
+                    logger.debug("PUBCOMP on messageId: {}, to completeRequest.",ack.messageId()); //xcy
                     completeRequest(ack.messageId(), PUBLISH.TYPE, null);
                     break;
                 }
